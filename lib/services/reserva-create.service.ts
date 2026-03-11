@@ -259,7 +259,7 @@ export class ReservaCreateService {
         },
       });
 
-      await fetch(MAIL_ENDPOINT, {
+      void fetch(MAIL_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -267,6 +267,8 @@ export class ReservaCreateService {
           subject,
           htmlContent,
         }),
+      }).catch((error) => {
+        console.error('[reservaCreate] email failed', error);
       });
     }
 

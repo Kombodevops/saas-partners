@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, CalendarClock, CheckCircle2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
@@ -33,6 +34,17 @@ export function FechaSection({
   onUseClosingTime,
   onChange,
 }: Props) {
+  const [aforoMinValue, setAforoMinValue] = useState(String(aforoMin ?? ''));
+  const [aforoMaxValue, setAforoMaxValue] = useState(String(aforoMax ?? ''));
+
+  useEffect(() => {
+    setAforoMinValue(aforoMin == null ? '' : String(aforoMin));
+  }, [aforoMin]);
+
+  useEffect(() => {
+    setAforoMaxValue(aforoMax == null ? '' : String(aforoMax));
+  }, [aforoMax]);
+
   const today = (() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -160,18 +172,48 @@ export function FechaSection({
           <label className="text-[12px] font-medium text-slate-700">Aforo mínimo</label>
           <Input
             type="number"
-            value={aforoMin}
+            value={aforoMinValue}
             className="h-9 text-[12px]"
-            onChange={(event) => onChange('aforoMin', Number(event.target.value))}
+            onChange={(event) => {
+              setAforoMinValue(event.target.value);
+            }}
+            onBlur={(event) => {
+              const raw = event.target.value.trim();
+              if (!raw) {
+                setAforoMinValue('1');
+                onChange('aforoMin', 1);
+                return;
+              }
+              const parsed = Number(raw);
+              if (!Number.isNaN(parsed)) {
+                setAforoMinValue(String(parsed));
+                onChange('aforoMin', parsed);
+              }
+            }}
           />
         </div>
         <div>
           <label className="text-[12px] font-medium text-slate-700">Aforo máximo</label>
           <Input
             type="number"
-            value={aforoMax}
+            value={aforoMaxValue}
             className="h-9 text-[12px]"
-            onChange={(event) => onChange('aforoMax', Number(event.target.value))}
+            onChange={(event) => {
+              setAforoMaxValue(event.target.value);
+            }}
+            onBlur={(event) => {
+              const raw = event.target.value.trim();
+              if (!raw) {
+                setAforoMaxValue('1');
+                onChange('aforoMax', 1);
+                return;
+              }
+              const parsed = Number(raw);
+              if (!Number.isNaN(parsed)) {
+                setAforoMaxValue(String(parsed));
+                onChange('aforoMax', parsed);
+              }
+            }}
           />
         </div>
       </CardContent>

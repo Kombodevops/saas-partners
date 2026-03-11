@@ -5,6 +5,7 @@ import { Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import type { PackCatalogItem } from '@/lib/services/pack-catalog.service';
 
@@ -108,10 +109,9 @@ export function ElementoEditor({
               {draft.Precio != null && (
                 <div>
                   <label className="text-sm font-medium text-slate-700">Precio</label>
-                  <Input
-                    type="number"
-                    value={asString(draft.Precio)}
-                    onChange={(event) => setDraft({ ...draft, Precio: Number(event.target.value) })}
+                  <NumberInput
+                    value={Number(draft.Precio ?? 0)}
+                    onChangeValue={(value) => setDraft({ ...draft, Precio: value })}
                   />
                 </div>
               )}
@@ -161,11 +161,10 @@ export function ElementoEditor({
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-600">Precio</label>
-                        <Input
-                          type="number"
-                          value={asString(intervalDraft.precio)}
-                          onChange={(event) =>
-                            setIntervalDraft({ ...intervalDraft, precio: Number(event.target.value) })
+                        <NumberInput
+                          value={Number(intervalDraft.precio ?? 0)}
+                          onChangeValue={(value) =>
+                            setIntervalDraft({ ...intervalDraft, precio: value })
                           }
                         />
                       </div>

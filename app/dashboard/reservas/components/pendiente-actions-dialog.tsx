@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import { ReservaActionsService } from '@/lib/services/reserva-actions.service';
 import type { ReservaItem } from '@/lib/services/reservas.service';
@@ -253,12 +254,11 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Importe del anticipo</label>
-                  <Input
-                    type="number"
+                  <NumberInput
                     min={2}
                     step="0.5"
-                    value={anticipoPrecio}
-                    onChange={(event) => setAnticipoPrecio(event.target.value)}
+                    value={Number.isNaN(Number(anticipoPrecio)) ? null : Number(anticipoPrecio)}
+                    onChangeValue={(value) => setAnticipoPrecio(String(value))}
                     placeholder="Ej: 10"
                   />
                   <p className="mt-1 text-xs text-slate-500">Mínimo 2€ por persona.</p>
@@ -364,7 +364,11 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
             <Button variant="outline" onClick={() => setOpenAccept(false)}>
               Cancelar
             </Button>
-            <Button className="bg-[#7472fd] text-white" onClick={onAceptar} disabled={saving || !fechaLimite}>
+            <Button
+              className="bg-emerald-500 text-white hover:bg-emerald-500"
+              onClick={onAceptar}
+              disabled={saving || !fechaLimite}
+            >
               {saving ? 'Guardando...' : 'Aceptar'}
             </Button>
           </div>
@@ -389,7 +393,7 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
               Cancelar
             </Button>
             <Button
-              className="bg-rose-600 text-white hover:bg-rose-700"
+              className="bg-rose-500 text-white hover:bg-rose-500"
               onClick={onRechazar}
               disabled={saving || !motivo.trim()}
             >

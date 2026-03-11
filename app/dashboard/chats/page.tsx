@@ -92,10 +92,6 @@ export default function ChatsPage() {
       restauranteId: restauranteFilter !== 'all' ? restauranteFilter : null,
       onChange: (head) => {
         setChats((prev) => mergeChats(head, prev));
-        if (!activeChatId && head.length && !isMobile) {
-          setActiveChatId(head[0].id);
-          setActiveChat(head[0]);
-        }
         setLoading(false);
       },
     });

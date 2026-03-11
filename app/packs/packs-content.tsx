@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BadgeCheck, ChevronRight, FolderPlus, PackageOpen, Sparkles } from 'lucide-react';
+import { FolderPlus, PackageOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthService } from '@/lib/services/auth.service';
@@ -71,28 +71,12 @@ export function PacksContent() {
   const hasRestaurantes = restaurantes.length > 0;
   const hasPacks = packs.length > 0;
 
-  const statusTitle = useMemo(() => {
-    if (!hasRestaurantes) return 'Primero crea tu primer restaurante';
-    if (!hasPacks) return 'Aún no tienes planes creados';
-    return 'Todos tus planes';
-  }, [hasRestaurantes, hasPacks]);
-
-  const activeCount = useMemo(() => packs.filter((pack) => pack.activo).length, [packs]);
   const packDetallesById = useMemo(() => new Map(packDetalles.map((pack) => [pack.id, pack])), [packDetalles]);
   const packsWithDetails = useMemo(
     () => packs.map((pack) => ({ resumen: pack, detalle: packDetallesById.get(pack.id) })),
     [packs, packDetallesById]
   );
   const resumenPacks = useMemo(() => packsWithDetails.slice(0, 3), [packsWithDetails]);
-  const formatPriceRange = (values: Array<number | undefined>) => {
-    const normalized = values.map((value) => (Number.isFinite(value as number) ? Number(value) : 0)).filter((v) => v > 0);
-    if (normalized.length === 0) return '—';
-    const min = Math.min(...normalized);
-    const max = Math.max(...normalized);
-    if (min === max) return `${min}€`;
-    return `${min}€ - ${max}€`;
-  };
-
   if (isLoading || restaurantesLoading) {
     return (
       <div className="min-h-screen bg-slate-50 px-6 py-10">
@@ -127,118 +111,9 @@ export function PacksContent() {
       </header>
 
       <main className="mx-auto w-full max-w-none px-4 py-8">
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-          <Card className="border-none bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-slate-900">
-                <Sparkles className="h-5 w-5 text-[#7472fd]" />
-                {statusTitle}
-              </CardTitle>
-              <CardDescription className="text-slate-500">
-                {hasRestaurantes
-                  ? 'Los planes se crean desde un restaurante y luego se reutilizan en todo tu catálogo.'
-                  : 'Los planes dependen de un restaurante, crea el primero para continuar.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {error && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-                  {error}
-                </div>
-              )}
-
-              {!hasRestaurantes && (
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600">Necesitas al menos un restaurante para crear planes.</p>
-                  </div>
-                  <Button className="bg-[#7472fd] text-white hover:bg-[#5f5bf2]" onClick={() => router.push('/restaurantes/new')}>
-                    Crear restaurante
-                  </Button>
-                </div>
-              )}
-
-              {hasRestaurantes && !hasPacks && (
-                <div className="mt-4 space-y-3">
-                  <p className="text-sm text-slate-600">
-                    Ve a un restaurante y añade el pack que necesites (menús, barras libres o tickets).
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {restaurantes.map((rest) => (
-                      <button
-                        key={rest.id}
-                        type="button"
-                        onClick={() => router.push(`/restaurantes/${rest.id}`)}
-                        className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-left text-sm text-slate-700 transition hover:border-[#7472fd]/40 hover:bg-[#7472fd]/5"
-                      >
-                        <span className="truncate">{rest.nombreRestaurante || 'Restaurante sin nombre'}</span>
-                        <ChevronRight className="h-4 w-4 text-slate-400" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {hasPacks && (
-                <div className="mt-4 space-y-3">
-                  <div className="grid gap-3">
-                    {packs.map((pack) => (
-                      <button
-                        key={pack.id}
-                        type="button"
-                        onClick={() => router.push(`/packs/${pack.id}`)}
-                        className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-white px-3 py-3 text-left shadow-sm transition hover:border-[#7472fd]/40 hover:shadow"
-                      >
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold text-slate-900">{pack.nombre || 'Plan sin nombre'}</p>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              pack.activo ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            {pack.activo ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 line-clamp-2">
-                          {pack.descripcion || 'Sin descripción'}
-                        </p>
-                        <div className="text-[11px] text-slate-400">
-                          {pack.categoria || 'Plan'} {pack.subcategoria ? `· ${pack.subcategoria}` : ''}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-none bg-gradient-to-br from-[#10102f] via-[#151641] to-[#1b1c52] text-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Vista rápida</CardTitle>
-              <CardDescription className="text-slate-300">
-                Resumen de tu catálogo y estado de publicación.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-2xl bg-white/10 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Planes activos</p>
-                <p className="mt-2 text-3xl font-semibold text-white">{activeCount}</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Total de planes</p>
-                <p className="mt-2 text-3xl font-semibold text-white">{packs.length}</p>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-300">
-                <BadgeCheck className="h-4 w-4 text-[#e2ff00]" />
-                Mantén descripciones claras para mejorar la conversión.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {hasPacks && (
-          <Card className="mt-6 w-full border-none bg-white shadow-sm">
+          <Card className="w-full border-none bg-white shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg text-slate-900">Resumen de tus planes</CardTitle>
               <CardDescription className="text-slate-500">
@@ -246,7 +121,7 @@ export function PacksContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid items-start gap-4 md:grid-cols-3">
                 {resumenPacks.map(({ resumen, detalle }) => {
                   const categoria = resumen.categoria ?? detalle?.Categoria ?? '';
                   const subcategoria = resumen.subcategoria ?? detalle?.Subcategoria ?? '';
@@ -258,8 +133,13 @@ export function PacksContent() {
                   const tickets = detalle?.Tickets ?? [];
                   const barras = detalle?.['Barra Libre'] ?? [];
                   return (
-                    <div key={`${resumen.id}-summary`} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                      <div className="flex items-center justify-between">
+                    <button
+                      key={`${resumen.id}-summary`}
+                      type="button"
+                      onClick={() => router.push(`/packs/${resumen.id}`)}
+                      className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left transition hover:border-[#7472fd]/40 hover:bg-[#7472fd]/5"
+                    >
+                      <div className="flex items-start justify-between">
                         <p className="text-sm font-semibold text-slate-900">{resumen.nombre || 'Plan sin nombre'}</p>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
@@ -268,9 +148,6 @@ export function PacksContent() {
                         >
                           {resumen.activo ? 'Activo' : 'Inactivo'}
                         </span>
-                      </div>
-                      <div className="mt-2 text-xs text-slate-500">
-                        {categoria || 'Plan'} {subcategoria ? `· ${subcategoria}` : ''}
                       </div>
                       <div className="mt-3 space-y-3 text-xs text-slate-600">
                         {isMenus && (
@@ -350,7 +227,7 @@ export function PacksContent() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

@@ -158,6 +158,15 @@ export function NotasEtiquetasModals({
   }, [openNotas, editableNotas]);
 
   useEffect(() => {
+    if (!openNotas && !openEtiquetas) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [openNotas, openEtiquetas]);
+
+  useEffect(() => {
     if (!openNotas) return;
     const board = boardRef.current;
     const scroller = scrollRef.current;
@@ -328,6 +337,7 @@ export function NotasEtiquetasModals({
             className={`z-50 flex items-center justify-center bg-black/50 ${
               portalRoot && portalRoot !== document.body ? 'absolute inset-0' : 'fixed inset-0'
             }`}
+            data-komvo-modal="true"
           >
             <div
               className="relative w-[88vw] h-[78vh] rounded-3xl bg-white shadow-lg"
@@ -350,7 +360,7 @@ export function NotasEtiquetasModals({
                 <div className="relative h-full rounded-3xl border border-slate-200 p-0 shadow-[inset_0_0_0_3px_rgba(148,113,69,0.45)] overflow-hidden">
                   <div
                     ref={scrollRef}
-                    className="h-full w-full overflow-auto rounded-2xl border border-amber-900/10 bg-[url('/notas/corcho7.jpg')] bg-cover bg-center pointer-events-auto"
+                    className="h-full w-full overflow-auto overscroll-contain rounded-2xl border border-amber-900/10 bg-[url('/notas/corcho7.jpg')] bg-cover bg-center pointer-events-auto"
                     style={{ backgroundAttachment: 'local', cursor: 'grab' }}
                     onPointerDown={handleBoardPointerDown}
                     onPointerMove={handleBoardPointerMove}
@@ -408,9 +418,12 @@ export function NotasEtiquetasModals({
                             )}
                             <div
                               data-note-id={key}
-                              className={`pointer-events-auto absolute w-40 select-none p-3 shadow-[0_10px_25px_rgba(15,23,42,0.12)] ${
+                              className={`pointer-events-auto absolute w-40 select-none touch-none p-3 shadow-[0_10px_25px_rgba(15,23,42,0.12)] ${
                                 dragging?.id === key ? 'z-30' : 'z-10'
                               }`}
+                              onPointerDown={(event) => {
+                                event.stopPropagation();
+                              }}
                               style={{
                                 left: position.x,
                                 top: position.y,
@@ -434,6 +447,8 @@ export function NotasEtiquetasModals({
                                 style={{ width: 'auto', height: '18px' }}
                                 draggable={false}
                                 onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
                                   const rect = (event.currentTarget as HTMLImageElement).parentElement?.getBoundingClientRect();
                                   if (!rect) return;
                                   setDragging({
@@ -516,6 +531,7 @@ export function NotasEtiquetasModals({
             className={`z-50 flex items-center justify-center bg-black/50 ${
               portalRoot && portalRoot !== document.body ? 'absolute inset-0' : 'fixed inset-0'
             }`}
+            data-komvo-modal="true"
           >
             <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-lg" onClick={(event) => event.stopPropagation()}>
               <button

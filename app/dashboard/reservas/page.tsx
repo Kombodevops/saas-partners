@@ -1361,18 +1361,21 @@ export default function ReservasDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="border-b bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-none items-center justify-between px-4 py-6">
-          <div>
+        <div className="mx-auto flex w-full max-w-none flex-col items-start justify-between gap-4 px-4 py-6 sm:flex-row sm:items-center">
+          <div className="w-full">
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Reservas</p>
             <h1 className="text-2xl font-semibold text-slate-900">Gestiona tus reservas</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button asChild className="bg-[#7472fd] text-white hover:bg-[#5f5bf2]">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
+            <Button
+              asChild
+              className="w-full bg-[#7472fd] text-white hover:bg-[#5f5bf2] sm:w-auto sm:order-1"
+            >
               <Link href="/dashboard/reservas/nueva" prefetch={false}>
                 Añadir reserva
               </Link>
             </Button>
-            <div className="relative grid h-10 w-48 grid-cols-2 rounded-full border border-slate-200 bg-white p-1">
+            <div className="relative grid h-10 w-full grid-cols-2 rounded-full border border-slate-200 bg-white p-1 sm:w-48 sm:order-2">
               <span
                 className={`absolute inset-1 w-[calc(50%-0.25rem)] rounded-full bg-[#7472fd] shadow-sm transition-transform duration-300 ${
                   vista === 'calendario' ? 'translate-x-full' : ''
@@ -1688,7 +1691,12 @@ export default function ReservasDashboardPage() {
               <Button variant="outline" onClick={() => setChangeDialogReserva(null)}>
                 Cancelar
               </Button>
-              <Button onClick={confirmChangeDialog}>Aceptar cambio</Button>
+              <Button
+                className="bg-emerald-500 text-white hover:bg-emerald-500"
+                onClick={confirmChangeDialog}
+              >
+                Aceptar cambio
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -2193,18 +2201,16 @@ export default function ReservasDashboardPage() {
                         {reserva.estado?.toLowerCase() === 'pendientecambio' && (
                           <div className="flex flex-wrap items-center gap-2">
                             <Button
-                              variant="outline"
                               size="sm"
-                              className="h-7 px-2 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              className="h-7 px-2 text-xs bg-emerald-500 text-white hover:bg-emerald-500"
                               disabled={Boolean(changeActionById[reserva.id])}
                               onClick={() => openChangeDialog(reserva)}
                             >
                               {changeActionById[reserva.id] === 'accept' ? 'Aceptando...' : 'Aceptar cambio'}
                             </Button>
                             <Button
-                              variant="outline"
                               size="sm"
-                              className="h-7 px-2 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
+                              className="h-7 px-2 text-xs bg-rose-500 text-white hover:bg-rose-500"
                               disabled={Boolean(changeActionById[reserva.id])}
                               onClick={() => handleChangeRequestAction(reserva.id, 'reject')}
                             >
@@ -2215,18 +2221,16 @@ export default function ReservasDashboardPage() {
                         {reserva.estado?.toLowerCase() === 'expirado' && (
                           <div className="flex flex-wrap items-center gap-2">
                             <Button
-                              variant="outline"
                               size="sm"
-                              className="h-7 px-2 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              className="h-7 px-2 text-xs bg-emerald-500 text-white hover:bg-emerald-500"
                               disabled={Boolean(expiredActionById[reserva.id])}
                               onClick={() => handleExpiredAction(reserva.id, 'confirm')}
                             >
                               {expiredActionById[reserva.id] === 'confirm' ? 'Confirmando...' : 'Confirmada con cliente'}
                             </Button>
                             <Button
-                              variant="outline"
                               size="sm"
-                              className="h-7 px-2 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
+                              className="h-7 px-2 text-xs bg-rose-500 text-white hover:bg-rose-500"
                               disabled={Boolean(expiredActionById[reserva.id])}
                               onClick={() => handleExpiredAction(reserva.id, 'cancel')}
                             >
@@ -2622,18 +2626,16 @@ export default function ReservasDashboardPage() {
                           {reserva.estado?.toLowerCase() === 'pendientecambio' && (
                             <div className="flex flex-wrap items-center gap-2">
                               <Button
-                                variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                className="h-7 px-2 text-xs bg-emerald-500 text-white hover:bg-emerald-500"
                                 disabled={Boolean(changeActionById[reserva.id])}
                                 onClick={() => openChangeDialog(reserva)}
                               >
                                 {changeActionById[reserva.id] === 'accept' ? 'Aceptando...' : 'Aceptar cambio'}
                               </Button>
                               <Button
-                                variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
+                                className="h-7 px-2 text-xs bg-rose-500 text-white hover:bg-rose-500"
                                 disabled={Boolean(changeActionById[reserva.id])}
                                 onClick={() => handleChangeRequestAction(reserva.id, 'reject')}
                               >
@@ -2644,18 +2646,16 @@ export default function ReservasDashboardPage() {
                           {reserva.estado?.toLowerCase() === 'expirado' && (
                             <div className="flex flex-wrap items-center gap-2">
                               <Button
-                                variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                className="h-7 px-2 text-xs bg-emerald-500 text-white hover:bg-emerald-500"
                                 disabled={Boolean(expiredActionById[reserva.id])}
                                 onClick={() => handleExpiredAction(reserva.id, 'confirm')}
                               >
                                 {expiredActionById[reserva.id] === 'confirm' ? 'Confirmando...' : 'Confirmada con cliente'}
                               </Button>
                               <Button
-                                variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
+                                className="h-7 px-2 text-xs bg-rose-500 text-white hover:bg-rose-500"
                                 disabled={Boolean(expiredActionById[reserva.id])}
                                 onClick={() => handleExpiredAction(reserva.id, 'cancel')}
                               >

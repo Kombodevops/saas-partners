@@ -59,6 +59,9 @@ const initialHorarios: RestauranteNewForm['horarios'] = {
 export default function NewRestaurantPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
+  const [visitedSteps, setVisitedSteps] = useState<boolean[]>(
+    () => STEPS.map((_, index) => index === 0)
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -196,8 +199,8 @@ export default function NewRestaurantPage() {
   };
 
   const completedSteps = useMemo(
-    () => STEPS.map((_, index) => isStepCompleted(index)),
-    [form.watch(), imagenes, logo, pdfs, hasAnyHorario]
+    () => STEPS.map((_, index) => visitedSteps[index] && isStepCompleted(index)),
+    [form.watch(), imagenes, logo, pdfs, hasAnyHorario, visitedSteps]
   );
 
   const handleStepChange = async (nextStep: number) => {
@@ -207,6 +210,9 @@ export default function NewRestaurantPage() {
       if (!ok) return;
     }
     setCurrentStep(nextStep);
+    setVisitedSteps((prev) =>
+      prev.map((value, index) => (index === nextStep ? true : value))
+    );
   };
 
   const toTimestamp = (time: string) => {
@@ -352,8 +358,8 @@ export default function NewRestaurantPage() {
   const currentKey = STEPS[currentStep].key;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-4 lg:h-screen lg:px-6 lg:py-6">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 lg:h-full">
+    <div className="min-h-screen bg-slate-50 px-4 py-4 lg:px-6 lg:py-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <StepHeader
           currentStep={currentStep}
           total={STEPS.length}
@@ -363,7 +369,7 @@ export default function NewRestaurantPage() {
         />
 
         <Form {...form}>
-          <div className="grid flex-1 gap-6 overflow-hidden lg:grid-cols-[260px_1fr]">
+          <div className="grid flex-1 gap-6 lg:grid-cols-[260px_1fr]">
             <div className="lg:sticky lg:top-6 self-start">
               <StepSidebar currentStep={currentStep} completedSteps={completedSteps} onSelect={handleStepChange} />
             </div>
@@ -372,7 +378,7 @@ export default function NewRestaurantPage() {
               <CardHeader>
                 <CardTitle className="text-base">{STEPS[currentStep].title}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6 lg:max-h-[calc(100vh-260px)] lg:overflow-y-auto pr-2">
+              <CardContent className="space-y-6 pr-2">
                 {currentKey === 'basico' && <BasicoStep />}
                 {currentKey === 'ubicacion' && <UbicacionStep />}
                 {currentKey === 'horarios' && <HorariosStep />}
@@ -404,7 +410,7 @@ export default function NewRestaurantPage() {
                       imagenesCount={imagenes.length}
                       logoSelected={!!logo}
                       pdfsCount={pdfs.length}
-                      onNavigate={(stepIndex) => setCurrentStep(stepIndex)}
+                      onNavigate={(stepIndex) => handleStepChange(stepIndex)}
                     />
                   )}
 
@@ -415,7 +421,13 @@ export default function NewRestaurantPage() {
                       type="button"
                       variant="outline"
                       disabled={currentStep === 0}
-                      onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+                      onClick={() => {
+                        const nextStep = Math.max(0, currentStep - 1);
+                        setCurrentStep(nextStep);
+                        setVisitedSteps((prev) =>
+                          prev.map((value, index) => (index === nextStep ? true : value))
+                        );
+                      }}
                     >
                       Anterior
                     </Button>
@@ -438,7 +450,11 @@ export default function NewRestaurantPage() {
                           onClick={async () => {
                             const ok = await validateStep();
                             if (ok) {
-                              setCurrentStep((prev) => Math.min(STEPS.length - 1, prev + 1));
+                              const nextStep = Math.min(STEPS.length - 1, currentStep + 1);
+                              setCurrentStep(nextStep);
+                              setVisitedSteps((prev) =>
+                                prev.map((value, index) => (index === nextStep ? true : value))
+                              );
                             }
                           }}
                         >

@@ -6,7 +6,6 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { PackEditService, type PackEdit } from '@/lib/services/pack-edit.service';
 import { useRestaurantes } from '@/components/shared/restaurantes-context';
@@ -26,6 +25,7 @@ export default function PackEditPage({ params }: PackEditPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [permiteComidaOpen, setPermiteComidaOpen] = useState(false);
   const { restaurantes, isLoading: restaurantesLoading } = useRestaurantes();
 
   useEffect(() => {
@@ -147,22 +147,74 @@ export default function PackEditPage({ params }: PackEditPageProps) {
     );
   }
 
+  const showPermiteComida =
+    pack.Categoria === 'Tickets' || pack.Subcategoria === 'Barra Libre';
+  const includedRestaurantes = baseForm.restaurantesIds ?? [];
+  const permitsCount = (baseForm.restaurantesPermiteComida ?? []).filter((id) =>
+    includedRestaurantes.includes(id)
+  ).length;
+  const permittedRestaurantes = restaurantes.filter(
+    (rest) =>
+      includedRestaurantes.includes(rest.id) &&
+      (baseForm.restaurantesPermiteComida ?? []).includes(rest.id)
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-10">
-      <div className="mx-auto w-full max-w-6xl space-y-8">
+      <div className="mx-auto w-full max-w-6xl space-y-4">
         <Card className="border-none bg-white shadow-sm ring-1 ring-slate-100">
-          <CardContent className="flex flex-wrap items-start justify-between gap-6 p-6">
-            <div className="min-w-[240px]">
-              <Button variant="outline" className="mb-4 gap-2" onClick={() => history.back()}>
+          <CardContent className="flex flex-col items-start gap-4 p-4">
+            <div className="flex w-full items-start justify-between gap-3">
+              <Button variant="outline" className="gap-2" onClick={() => history.back()}>
                 <ArrowLeft className="h-4 w-4" />
                 Volver
               </Button>
-              <h1 className="text-2xl font-semibold text-slate-900">{pack['Nombre del pack']}</h1>
-              <p className="mt-2 text-sm text-slate-500">
-                Usa nombres claros y descripciones atractivas para destacar en el marketplace.
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(true)}
+                className={`flex items-center gap-2 rounded-full border px-5 py-2 text-sm font-semibold shadow-sm transition ${
+                  pack.activo
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    : 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    pack.activo ? 'bg-emerald-500' : 'bg-slate-400'
+                  }`}
+                />
+                {pack.activo ? 'Activo' : 'Inactivo'}
+                <span className="text-xs text-slate-500">Toca para cambiar</span>
+              </button>
+            </div>
+            <div className="flex w-full flex-col gap-4 lg:flex-row">
+              <div className="flex-1">
+                <p className="text-2xl font-semibold text-slate-900">
+                  {pack.Categoria === 'Menú'
+                    ? 'Menús cerrados para grupos'
+                  : pack.Categoria === 'Tickets'
+                    ? 'Tickets de consumiciones'
+                    : pack.Subcategoria === 'Barra Libre'
+                      ? 'Barra libre'
+                      : pack.Categoria}
               </p>
-              {restauranteId && (
-                <div className="mt-3 text-xs text-slate-600">
+                <p className="mt-1 text-sm text-slate-500">
+                  Usa descripciones atractivas para destacar en el marketplace.
+                </p>
+                <div className="mt-4 space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Descripción</label>
+                  <Textarea
+                    defaultValue={baseForm['Descripción']}
+                    rows={4}
+                    onBlur={(event) => updatePack({ 'Descripción': event.target.value })}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Esta descripción se comparte en todos los restaurantes donde esté incluido este pack.
+                  </p>
+                  {isSaving && <p className="text-xs text-slate-500">Guardando cambios...</p>}
+                </div>
+                {restauranteId && (
+                  <div className="mt-3 text-xs text-slate-600">
                   {pack.Categoria === 'Menú' && !hasRestauranteInMenus && (
                     <p>
                       En "{restauranteNombre}" no tienes menús asignados. Asigna uno en el apartado de{' '}
@@ -235,71 +287,65 @@ export default function PackEditPage({ params }: PackEditPageProps) {
                         .
                       </p>
                     )}
+                  </div>
+                )}
+              </div>
+              {showPermiteComida && (
+                <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-900">Permitir llevar propia comida al cliente</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7"
+                      onClick={() => setPermiteComidaOpen(true)}
+                    >
+                      Editar
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {pack.Categoria === 'Tickets' &&
+                      'Actívalo solo en los restaurantes en los que permites que, en planes de tickets, el cliente traiga su propia comida al local.'}
+                    {pack.Subcategoria === 'Barra Libre' &&
+                      'Actívalo solo en los restaurantes en los que permites que, en planes de barras libres, el cliente traiga su propia comida al local.'}
+                  </p>
+                  <div className="mt-3 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+                    <p className="text-[11px] font-semibold text-slate-500">Restaurantes con comida externa</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {permittedRestaurantes.length > 0 ? (
+                        permittedRestaurantes.map((rest) => (
+                          <span
+                            key={rest.id}
+                            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600"
+                          >
+                            {rest.nombreRestaurante}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-slate-400">Ninguno seleccionado</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(true)}
-                className={`flex items-center gap-2 rounded-full border px-5 py-2 text-sm font-semibold shadow-sm transition ${
-                  pack.activo
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                    : 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    pack.activo ? 'bg-emerald-500' : 'bg-slate-400'
-                  }`}
-                />
-                {pack.activo ? 'Activo' : 'Inactivo'}
-                <span className="text-xs text-slate-500">Toca para cambiar</span>
-              </button>
             </div>
           </CardContent>
         </Card>
 
-        <div className={`grid gap-6 ${pack.Categoria === 'Menú' ? 'lg:grid-cols-1' : 'lg:grid-cols-2'}`}>
-          <Card className="border-none bg-white shadow-sm ring-1 ring-slate-100">
-            <CardHeader className="pb-0">
-              <CardTitle className="text-base">Información general</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-1">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-700">Nombre</label>
-                <Input value={baseForm['Nombre del pack']} readOnly className="bg-slate-50 text-slate-600" />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">Descripción</label>
-              <Textarea
-                defaultValue={baseForm['Descripción']}
-                rows={4}
-                onBlur={(event) => updatePack({ 'Descripción': event.target.value })}
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                Esta descripción se comparte en todos los restaurantes donde esté incluido este pack.
-              </p>
-            </div>
-            {isSaving && <p className="text-xs text-slate-500">Guardando cambios...</p>}
-            </CardContent>
-          </Card>
+        <div className="grid gap-6" />
 
-          {pack.Categoria !== 'Menú' && (
-            <Card className="border-none bg-white shadow-sm ring-1 ring-slate-100">
-              <CardHeader className="pb-0">
-                <CardTitle className="text-base">Permite llevar su propia comida al cliente</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm pt-1">
+        {showPermiteComida && (
+          <Dialog open={permiteComidaOpen} onOpenChange={setPermiteComidaOpen}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Permite llevar su propia comida</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 text-sm">
                 <p className="text-xs text-slate-500">
                   {pack.Categoria === 'Tickets' &&
                     'Actívalo solo en los restaurantes en los que permites que, en planes de tickets, el cliente traiga su propia comida al local.'}
                   {pack.Subcategoria === 'Barra Libre' &&
                     'Actívalo solo en los restaurantes en los que permites que, en planes de barras libres, el cliente traiga su propia comida al local.'}
-                  {pack.Subcategoria === null && pack.Categoria === 'Best Deal' &&
-                    'Actívalo solo en los restaurantes en los que permites que, en planes de tickets o barras libres, el cliente traiga su propia comida al local.'}
                 </p>
                 {restaurantes.length === 0 ? (
                   <p className="text-slate-500">Sin restaurantes asociados.</p>
@@ -331,7 +377,11 @@ export default function PackEditPage({ params }: PackEditPageProps) {
                           <div className="flex flex-col gap-1">
                             <span className="text-sm font-semibold">{rest.nombreRestaurante}</span>
                             <span className="text-xs text-slate-500">
-                              {included ? 'Pulsa para activar o desactivar' : 'Incluye el restaurante en el plan'}
+                              {included
+                                ? 'Pulsa para activar o desactivar'
+                                : pack.Categoria === 'Tickets'
+                                  ? 'Incluye este restaurante en algún ticket'
+                                  : 'Incluye este restaurante en alguna barra libre'}
                             </span>
                           </div>
                           <span
@@ -350,10 +400,10 @@ export default function PackEditPage({ params }: PackEditPageProps) {
                     })}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {pack.Categoria === 'Menú' && (
           <MenusEditor

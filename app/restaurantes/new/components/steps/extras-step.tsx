@@ -1,6 +1,7 @@
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import type { RestauranteNewForm } from '@/lib/validators/restaurante-new';
 
@@ -38,12 +39,11 @@ export function ExtrasStep() {
               </div>
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-slate-600">Precio (€)</p>
-                <Input
-                  type="number"
+                <NumberInput
                   placeholder="Precio"
                   value={form.watch(`extras.${index}.precio`) ?? 0}
-                  onChange={(event) =>
-                    form.setValue(`extras.${index}.precio`, Number(event.target.value), { shouldDirty: true })
+                  onChangeValue={(value) =>
+                    form.setValue(`extras.${index}.precio`, value, { shouldDirty: true })
                   }
                 />
               </div>
@@ -93,12 +93,11 @@ export function ExtrasStep() {
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-slate-600">Tiempo mínimo (horas)</p>
-                  <Input
-                    type="number"
+                  <NumberInput
                     placeholder="Tiempo mínimo (horas)"
                     value={form.watch(`extras.${index}.tiempoMinimoHoras`) ?? 1}
-                    onChange={(event) =>
-                      form.setValue(`extras.${index}.tiempoMinimoHoras`, Number(event.target.value), { shouldDirty: true })
+                    onChangeValue={(value) =>
+                      form.setValue(`extras.${index}.tiempoMinimoHoras`, value, { shouldDirty: true })
                     }
                   />
                 </div>
@@ -123,12 +122,11 @@ export function ExtrasStep() {
               <div className="mt-3">
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-slate-600">Unidades mínimas</p>
-                  <Input
-                    type="number"
+                  <NumberInput
                     placeholder="Unidades mínimas"
                     value={form.watch(`extras.${index}.unidadesMinimas`) ?? 1}
-                    onChange={(event) =>
-                      form.setValue(`extras.${index}.unidadesMinimas`, Number(event.target.value), { shouldDirty: true })
+                    onChangeValue={(value) =>
+                      form.setValue(`extras.${index}.unidadesMinimas`, value, { shouldDirty: true })
                     }
                   />
                 </div>

@@ -1,5 +1,7 @@
 'use client';
 
+import { NumberInput } from '@/components/ui/number-input';
+
 type Intervalo = Record<string, unknown>;
 
 type Props = {
@@ -115,12 +117,11 @@ export function BarraLibreIntervalo({ intervalos, selected, onSelect }: Props) {
             </div>
             <div>
               <label className="text-xs font-medium text-slate-600">Precio</label>
-              <input
-                type="number"
+              <NumberInput
                 className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                value={String(selected.precio ?? '')}
-                onChange={(event) => {
-                  const next = { ...selected, precio: Number(event.target.value) } as Intervalo;
+                value={typeof selected.precio === 'number' ? selected.precio : Number(selected.precio ?? 0)}
+                onChangeValue={(value) => {
+                  const next = { ...selected, precio: value } as Intervalo;
                   onSelect(next);
                 }}
               />

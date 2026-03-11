@@ -15,10 +15,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Komvo Event Manager",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_WEB_URL || "https://komvoapp.com"),
+  title: "Komvo Group Manager",
   description: "Gestión de reservas y grupos para restaurantes.",
   icons: {
     icon: "/komvo/1-5c1ad366.ico",
+  },
+  openGraph: {
+    title: "Komvo Group Manager",
+    description: "Gestión de reservas y grupos para restaurantes.",
+    images: ["/komvo/logotipo-black.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Komvo Group Manager",
+    description: "Gestión de reservas y grupos para restaurantes.",
+    images: ["/komvo/logotipo-black.png"],
   },
 };
 

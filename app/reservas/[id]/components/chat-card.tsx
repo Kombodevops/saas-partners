@@ -116,7 +116,8 @@ export const ChatCard = memo(function ChatCard({
       const hasDialog =
         document.querySelector('[data-slot="dialog-overlay"][data-state="open"]') ??
         document.querySelector('[data-slot="dialog-content"][data-state="open"]') ??
-        document.querySelector('[role="dialog"][data-state="open"][aria-modal="true"]');
+        document.querySelector('[role="dialog"][data-state="open"][aria-modal="true"]') ??
+        document.querySelector('[data-komvo-modal="true"]');
       setSuppressChat(Boolean(hasDialog));
     };
     checkDialogs();

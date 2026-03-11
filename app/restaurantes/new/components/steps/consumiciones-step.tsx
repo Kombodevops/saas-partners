@@ -1,6 +1,7 @@
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import type { RestauranteNewForm } from '@/lib/validators/restaurante-new';
 
@@ -36,12 +37,11 @@ export function ConsumicionesStep({ files, onFilesChange }: ConsumicionesStepPro
                 form.setValue(`consumiciones.${index}.nombre`, event.target.value, { shouldDirty: true })
               }
             />
-            <Input
-              type="number"
+            <NumberInput
               placeholder="Precio"
               value={form.watch(`consumiciones.${index}.precio`) ?? 0}
-              onChange={(event) =>
-                form.setValue(`consumiciones.${index}.precio`, Number(event.target.value), { shouldDirty: true })
+              onChangeValue={(value) =>
+                form.setValue(`consumiciones.${index}.precio`, value, { shouldDirty: true })
               }
             />
           </div>

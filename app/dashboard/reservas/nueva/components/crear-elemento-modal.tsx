@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import { PackEditService } from '@/lib/services/pack-edit.service';
 import type { PackEditForm, MenuEditForm, TicketEditForm, BarraLibreEditForm } from '@/lib/validators/pack-edit';
@@ -283,7 +284,7 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Precio</label>
-              <Input type="number" value={precio} onChange={(event) => setPrecio(Number(event.target.value))} />
+              <NumberInput value={precio} onChangeValue={(value) => setPrecio(value)} />
             </div>
 
             {packKind === 'Barra Libre' && (

@@ -72,7 +72,7 @@ export class ReservaActionsService {
         horaFin: this.getString(kombo.horaFin),
       },
     });
-    await fetch(MAIL_ENDPOINT, {
+    void fetch(MAIL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -80,6 +80,8 @@ export class ReservaActionsService {
         subject,
         htmlContent,
       }),
+    }).catch((error) => {
+      console.error('[sendReservaEstadoEmail] failed', error);
     });
   }
 
@@ -115,7 +117,7 @@ export class ReservaActionsService {
       payload.questions = questions;
     }
     await updateDoc(ref, payload);
-    await this.sendReservaEstadoEmail({ reservaId, accepted: true });
+    void this.sendReservaEstadoEmail({ reservaId, accepted: true });
   }
 
   static async rechazarReserva({ reservaId, motivo }: RechazarReservaPayload) {
@@ -126,6 +128,6 @@ export class ReservaActionsService {
       motivo,
       fechaActualizacion: serverTimestamp(),
     });
-    await this.sendReservaEstadoEmail({ reservaId, accepted: false, motivo });
+    void this.sendReservaEstadoEmail({ reservaId, accepted: false, motivo });
   }
 }

@@ -1,6 +1,7 @@
 import { useFormContext } from 'react-hook-form';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import type { RestauranteNewForm } from '@/lib/validators/restaurante-new';
 
@@ -71,10 +72,10 @@ export function BasicoStep() {
             <FormItem>
               <FormLabel>Aforo mínimo</FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  value={field.value ?? 0}
-                  onChange={(event) => field.onChange(Number(event.target.value))}
+                <NumberInput
+                  value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                  onChangeValue={field.onChange}
+                  onBlur={field.onBlur}
                 />
               </FormControl>
               <FormMessage />
@@ -88,10 +89,10 @@ export function BasicoStep() {
             <FormItem>
               <FormLabel>Aforo máximo</FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  value={field.value ?? 0}
-                  onChange={(event) => field.onChange(Number(event.target.value))}
+                <NumberInput
+                  value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                  onChangeValue={field.onChange}
+                  onBlur={field.onBlur}
                 />
               </FormControl>
               <FormMessage />

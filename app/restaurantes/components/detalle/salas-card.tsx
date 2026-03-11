@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type Resolver } from 'react-hook-form';
@@ -94,9 +95,9 @@ export function SalasCard({
     ]);
   };
 
-  const openDescripcionEditor = (salaIndex: number, key: string) => {
+  const openDescripcionEditor = (salaIndex: number, key: string, initialValue?: string) => {
     const current = form.getValues(`salas.${salaIndex}.caracteristicas`);
-    const value = current?.[key] ?? '';
+    const value = initialValue ?? current?.[key] ?? '';
     setEditDescripcionSalaIndex(salaIndex);
     setEditDescripcionKey(key);
     setEditDescripcionValue(value);
@@ -250,43 +251,55 @@ export function SalasCard({
                       <FormField
                         control={form.control}
                         name={`salas.${index}.aforoMinimo`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Aforo minimo</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Aforo minimo</FormLabel>
+                          <FormControl>
+                            <NumberInput
+                              value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                              onChangeValue={field.onChange}
+                              onBlur={field.onBlur}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                       />
                       <FormField
                         control={form.control}
                         name={`salas.${index}.aforoMaximo`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Aforo maximo</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Aforo maximo</FormLabel>
+                          <FormControl>
+                            <NumberInput
+                              value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                              onChangeValue={field.onChange}
+                              onBlur={field.onBlur}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                       />
                     </div>
                     <div className="mt-3 grid gap-4">
                       <FormField
                         control={form.control}
                         name={`salas.${index}.precioPrivatizacion`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Precio privatizacion</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Precio privatizacion</FormLabel>
+                          <FormControl>
+                            <NumberInput
+                              value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                              onChangeValue={field.onChange}
+                              onBlur={field.onBlur}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                       />
                       <FormField
                         control={form.control}
@@ -426,16 +439,17 @@ export function SalasCard({
                                               if (next[item]) {
                                                 delete next[item];
                                               } else {
-                                                next[item] = restauranteCaracteristicas?.[item] ?? '';
+                                                // Se añade al guardar la descripción
                                               }
-                                              field.onChange(next);
-                                              form.setValue(`salas.${index}.caracteristicas`, next, {
-                                                shouldDirty: true,
-                                                shouldTouch: true,
-                                                shouldValidate: true,
-                                              });
                                               if (!wasSelected) {
-                                                openDescripcionEditor(index, item);
+                                                openDescripcionEditor(index, item, restauranteCaracteristicas?.[item] ?? '');
+                                              } else {
+                                                field.onChange(next);
+                                                form.setValue(`salas.${index}.caracteristicas`, next, {
+                                                  shouldDirty: true,
+                                                  shouldTouch: true,
+                                                  shouldValidate: true,
+                                                });
                                               }
                                           }}
                                         >

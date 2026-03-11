@@ -69,7 +69,7 @@ export default function RegisterPage() {
           ? `${process.env.NEXT_PUBLIC_WEB_URL}/komvo/logotipo-black.png`
           : undefined;
         const adminEmail = buildRegisterAdminEmail(data, logoUrl);
-        await fetch(MAIL_ENDPOINT, {
+        void fetch(MAIL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -77,10 +77,12 @@ export default function RegisterPage() {
             subject: adminEmail.subject,
             htmlContent: adminEmail.htmlContent,
           }),
+        }).catch((error) => {
+          console.error('[register] admin email failed', error);
         });
 
         const partnerEmail = buildRegisterPartnerEmail(logoUrl);
-        await fetch(MAIL_ENDPOINT, {
+        void fetch(MAIL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -88,6 +90,8 @@ export default function RegisterPage() {
             subject: partnerEmail.subject,
             htmlContent: partnerEmail.htmlContent,
           }),
+        }).catch((error) => {
+          console.error('[register] partner email failed', error);
         });
       }
       setShowSuccess(true);

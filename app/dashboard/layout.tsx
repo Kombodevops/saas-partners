@@ -266,7 +266,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="h-screen bg-slate-50 text-slate-900">
       <div className="flex h-screen overflow-hidden lg:overflow-visible">
         <aside
-          className={`hidden h-screen flex-col border-r border-slate-100 bg-white px-0 pt-0 pb-0 text-[9px] transition-all lg:flex ${
+          className={`hidden h-screen flex-col border-r border-slate-100 bg-white px-0 pt-0 pb-0 text-[11px] transition-all lg:flex ${
             isCollapsed ? 'w-18 items-center' : 'w-56'
           }`}
         >
@@ -283,12 +283,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`group rounded-xl px-1.5 py-1 text-[10px] font-medium transition ${
+                  className={`group rounded-xl px-1.5 py-1 text-[12px] font-medium transition ${
                     isActive
                       ? 'bg-[#7472fd]/10 text-[#3b3af2] ring-1 ring-[#7472fd]/20'
                       : 'text-slate-600 hover:bg-slate-100'
                   } ${isCollapsed ? 'w-12 h-12 flex items-center justify-center p-0' : ''}`}
-                  title={item.label}
                 >
                   {isCollapsed ? (
                     <span
@@ -297,9 +296,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       }`}
                     >
                       <Home className="h-3.5 w-3.5" />
-                      <span className="pointer-events-none absolute left-full top-1/2 z-[9999] ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-700 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-                        {item.label}
-                      </span>
                     </span>
                   ) : (
                     item.label
@@ -310,7 +306,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
             <div>
               <div
-                className={`group flex h-7 items-center justify-between rounded-xl px-1.5 py-1 text-[10px] font-medium transition ${
+                className={`group flex h-7 items-center justify-between rounded-xl px-1.5 py-1 text-[12px] font-medium transition ${
                   pathname.startsWith('/dashboard/restaurantes')
                     ? 'bg-[#7472fd]/10 text-[#3b3af2] ring-1 ring-[#7472fd]/20'
                     : 'text-slate-600 hover:bg-slate-100'
@@ -320,7 +316,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   type="button"
                   onClick={() => router.push('/dashboard/restaurantes')}
                   className={`flex h-full w-full items-center gap-2 text-left ${isCollapsed ? 'justify-center' : ''}`}
-                  title="Restaurantes"
                 >
                   {isCollapsed ? (
                     <span
@@ -331,9 +326,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       }`}
                     >
                       <Store className="h-3.5 w-3.5" />
-                      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-700 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-                        Restaurantes
-                      </span>
                     </span>
                   ) : (
                     'Restaurantes'
@@ -360,18 +352,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {!isCollapsed && openSections.restaurantes && (
                     <div className="mt-2 space-y-1.5 pl-1">
                   {isLoading ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 px-1 py-0.5 text-[10px] text-slate-400">
+                    <div className="rounded-lg border border-dashed border-slate-200 px-1 py-0.5 text-[12px] text-slate-400">
                       Cargando restaurantes...
                     </div>
                   ) : restaurantes.length === 0 ? (
                     <button
                       type="button"
                       onClick={() => router.push('/restaurantes/new')}
-                      className="flex w-full items-center justify-between rounded-lg border border-dashed border-slate-200 px-1 py-0.5 text-[10px] text-slate-400 transition hover:border-[#7472fd]/40 hover:bg-[#7472fd]/5"
+                      className="flex w-full items-center justify-between rounded-lg border border-dashed border-slate-200 px-1 py-0.5 text-[12px] text-slate-400 transition hover:border-[#7472fd]/40 hover:bg-[#7472fd]/5"
                     >
                       <span>{partner ? 'Sin restaurantes asignados' : 'Cargando restaurantes'}</span>
                       {partner && (
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7472fd] text-[10px] font-semibold text-white">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7472fd] text-[12px] font-semibold text-white">
                           +
                         </span>
                       )}
@@ -382,7 +374,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         key={restaurante.id}
                         type="button"
                         onClick={() => router.push(`/restaurantes/${restaurante.id}`)}
-                        className="flex w-full items-center justify-between rounded-lg border border-transparent px-1 py-0.5 text-left text-[10px] text-slate-600 transition hover:border-[#7472fd]/30 hover:bg-[#7472fd]/5"
+                        className="flex w-full items-center justify-between rounded-lg border border-transparent px-1 py-0.5 text-left text-[12px] text-slate-600 transition hover:border-[#7472fd]/30 hover:bg-[#7472fd]/5"
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-2">
                           <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
@@ -406,7 +398,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
             <div>
               <div
-                className={`group flex h-7 items-center justify-between rounded-xl px-1.5 py-1 text-[10px] font-medium transition ${
+                className={`group flex h-7 items-center justify-between rounded-xl px-1.5 py-1 text-[12px] font-medium transition ${
                   pathname.startsWith('/dashboard/packs')
                     ? 'bg-[#7472fd]/10 text-[#3b3af2] ring-1 ring-[#7472fd]/20'
                     : 'text-slate-600 hover:bg-slate-100'
@@ -416,7 +408,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   type="button"
                   onClick={() => router.push('/dashboard/packs')}
                   className={`flex h-full w-full items-center gap-2 text-left ${isCollapsed ? 'justify-center' : ''}`}
-                  title="Planes"
                 >
                   {isCollapsed ? (
                     <span
@@ -425,9 +416,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       }`}
                     >
                       <Package className="h-3.5 w-3.5" />
-                      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-700 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-                        Planes
-                      </span>
                     </span>
                   ) : (
                     'Planes'
@@ -452,11 +440,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {!isCollapsed && openSections.packs && (
                     <div className="mt-2 space-y-1.5 pl-1">
                   {isLoading ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 px-1 py-0.5 text-[10px] text-slate-400">
+                    <div className="rounded-lg border border-dashed border-slate-200 px-1 py-0.5 text-[12px] text-slate-400">
                       Cargando packs...
                     </div>
                   ) : packs.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 px-1 py-0.5 text-[10px] text-slate-400">
+                    <div className="rounded-lg border border-dashed border-slate-200 px-1 py-0.5 text-[12px] text-slate-400">
                       {partner ? 'Sin planes cargados' : 'Cargando planes'}
                     </div>
                   ) : (
@@ -465,7 +453,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         key={pack.id}
                         type="button"
                         onClick={() => router.push(`/packs/${pack.id}`)}
-                        className="flex w-full items-center justify-between rounded-lg border border-transparent px-1 py-0.5 text-left text-[10px] text-slate-600 transition hover:border-[#7472fd]/30 hover:bg-[#7472fd]/5"
+                        className="flex w-full items-center justify-between rounded-lg border border-transparent px-1 py-0.5 text-left text-[12px] text-slate-600 transition hover:border-[#7472fd]/30 hover:bg-[#7472fd]/5"
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-2">
                           <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
@@ -506,12 +494,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`group rounded-xl px-1.5 py-1 text-[10px] font-medium transition ${
+                  className={`group rounded-xl px-1.5 py-1 text-[12px] font-medium transition ${
                     isActive
                       ? 'bg-[#7472fd]/10 text-[#3b3af2] ring-1 ring-[#7472fd]/20'
                       : 'text-slate-600 hover:bg-slate-100'
                   } ${isCollapsed ? 'w-12 h-12 flex items-center justify-center p-0' : ''}`}
-                  title={item.label}
                 >
                   {isCollapsed ? (
                     <span
@@ -525,9 +512,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                           {chatUnreadTotal}
                         </span>
                       )}
-                      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-700 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-                        {item.label}
-                      </span>
                     </span>
                   ) : (
                     <div className="flex w-full items-center gap-2">
@@ -581,12 +565,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <CircleUserRound className="h-3.5 w-3.5 text-slate-500" />
                   {!isCollapsed && (
                     <div className="text-left">
-                      <p className="text-[10px] font-medium text-slate-800">
+                      <p className="text-[12px] font-medium text-slate-800">
                         {(partner as unknown as Record<string, string>)?.['Nombre del negocio'] ||
                           partner?.nombreNegocio ||
                           'Partner'}
                       </p>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-[12px] text-slate-400">
                         {(partner as unknown as Record<string, string>)?.Apellidos || partner?.apellidos || ''}
                       </p>
                     </div>
@@ -608,7 +592,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <button
                       type="button"
                       onClick={handleSignOut}
-                      className="flex w-full items-center gap-2 rounded-xl px-1.5 py-1 text-[10px] text-slate-700 transition hover:bg-rose-50 hover:text-rose-600"
+                      className="flex w-full items-center gap-2 rounded-xl px-1.5 py-1 text-[12px] text-slate-700 transition hover:bg-rose-50 hover:text-rose-600"
                     >
                       <LogOut className="h-3.5 w-3.5" />
                       Salir
@@ -645,12 +629,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <div className="flex h-full flex-col bg-white px-4 py-8">
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Komvo</p>
+                          <p className="text-[12px] uppercase tracking-[0.2em] text-slate-400">Komvo</p>
                           <p className="text-lg font-semibold text-slate-900">Partners</p>
                         </div>
                       </div>
 
-                      <nav className="mt-8 flex flex-1 flex-col gap-2 text-[10px]">
+                      <nav className="mt-8 flex flex-1 flex-col gap-2 text-[12px]">
                         {NAV_ITEMS.filter((item) => item.href === '/dashboard').map((item) => {
                           const isActive = pathname === '/dashboard';
                           return (

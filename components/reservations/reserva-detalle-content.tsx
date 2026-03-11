@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -157,6 +158,7 @@ export function ReservaDetalleContent({
   const [anticipoDescripcion, setAnticipoDescripcion] = useState('');
   const [anticipoPrecio, setAnticipoPrecio] = useState<number>(0);
   const [packDialogInitialized, setPackDialogInitialized] = useState(false);
+  const packDialogRef = useRef<HTMLDivElement | null>(null);
   const [allowSinCompraOverride, setAllowSinCompraOverride] = useState(false);
   const [confirmSinCompraOpen, setConfirmSinCompraOpen] = useState(false);
   const [savingSinCompraSala, setSavingSinCompraSala] = useState(false);
@@ -503,6 +505,9 @@ export function ReservaDetalleContent({
 
   useEffect(() => {
     if (!packDialogOpen) return;
+    requestAnimationFrame(() => {
+      packDialogRef.current?.focus({ preventScroll: true });
+    });
     if (!selectedPackId || isSinCompraPack || isAdhocDialog) {
       const hasState =
         selectedPack ||
@@ -1140,18 +1145,16 @@ export function ReservaDetalleContent({
             {cambioPendiente && (
               <>
                 <Button
-                  variant="outline"
                   size="sm"
-                  className="h-9 px-4 text-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  className="h-9 px-4 text-sm bg-emerald-500 text-white hover:bg-emerald-500"
                   disabled={savingCambio === 'accept' || savingCambio === 'reject'}
                   onClick={openCambioDialog}
                 >
                   {savingCambio === 'accept' ? 'Aceptando...' : 'Aceptar cambio'}
                 </Button>
                 <Button
-                  variant="outline"
                   size="sm"
-                  className="h-9 px-4 text-sm border-rose-200 text-rose-700 hover:bg-rose-50"
+                  className="h-9 px-4 text-sm bg-rose-500 text-white hover:bg-rose-500"
                   disabled={savingCambio === 'accept' || savingCambio === 'reject'}
                   onClick={() => handleCambioAction('reject')}
                 >
@@ -1162,18 +1165,16 @@ export function ReservaDetalleContent({
             {reserva.estado?.toLowerCase() === 'expirado' && (
               <>
                 <Button
-                  variant="outline"
                   size="sm"
-                  className="h-9 px-4 text-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  className="h-9 px-4 text-sm bg-emerald-500 text-white hover:bg-emerald-500"
                   disabled={savingExpiredAction === 'confirm' || savingExpiredAction === 'cancel'}
                   onClick={() => handleExpiredAction('confirm')}
                 >
                   {savingExpiredAction === 'confirm' ? 'Confirmando...' : 'Confirmada con cliente'}
                 </Button>
                 <Button
-                  variant="outline"
                   size="sm"
-                  className="h-9 px-4 text-sm border-rose-200 text-rose-700 hover:bg-rose-50"
+                  className="h-9 px-4 text-sm bg-rose-500 text-white hover:bg-rose-500"
                   disabled={savingExpiredAction === 'confirm' || savingExpiredAction === 'cancel'}
                   onClick={() => handleExpiredAction('cancel')}
                 >
@@ -1185,7 +1186,7 @@ export function ReservaDetalleContent({
         </div>
 
         <Dialog open={cambioDialogOpen} onOpenChange={setCambioDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg" onOpenAutoFocus={(event) => event.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Confirmar cambio</DialogTitle>
               <DialogDescription>
@@ -1193,7 +1194,7 @@ export function ReservaDetalleContent({
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              {cambioSolicitado && (
+              {cambioPendiente && cambioSolicitado && (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                   <div className="flex flex-wrap justify-between gap-2">
                     <span>Fecha: {formatCambioFecha(cambioSolicitado.fechaNueva)}</span>
@@ -1222,13 +1223,18 @@ export function ReservaDetalleContent({
               <Button variant="outline" onClick={() => setCambioDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={confirmCambio}>Aceptar cambio</Button>
+              <Button
+                className="bg-emerald-500 text-white hover:bg-emerald-500"
+                onClick={confirmCambio}
+              >
+                Aceptar cambio
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         <Dialog open={emailFailDialog} onOpenChange={setEmailFailDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md" onOpenAutoFocus={(event) => event.preventDefault()}>
             <DialogHeader>
               <DialogTitle>No se pudo enviar el correo</DialogTitle>
               <DialogDescription>
@@ -1312,7 +1318,7 @@ export function ReservaDetalleContent({
           </div>
 
           <div className="order-1 space-y-6 lg:order-2">
-            {cambioSolicitado && (
+            {cambioPendiente && cambioSolicitado && (
               <Card className="border border-amber-200 bg-amber-50/60 shadow-sm">
                 <CardContent className="space-y-4 py-2">
                   <div className="flex items-start justify-between gap-3">
@@ -1741,7 +1747,7 @@ export function ReservaDetalleContent({
         </div>
       </div>
       <Dialog open={localDialogOpen} onOpenChange={setLocalDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" onOpenAutoFocus={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Cambiar local</DialogTitle>
             <DialogDescription>Selecciona el restaurante y el espacio para esta reserva.</DialogDescription>
@@ -1779,18 +1785,16 @@ export function ReservaDetalleContent({
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Aforo mínimo</label>
-                <Input
-                  type="number"
-                  value={customSalaLocalAforoMin}
-                  onChange={(event) => setCustomSalaLocalAforoMin(event.target.value ? Number(event.target.value) : '')}
+                <NumberInput
+                  value={typeof customSalaLocalAforoMin === 'number' ? customSalaLocalAforoMin : null}
+                  onChangeValue={(value) => setCustomSalaLocalAforoMin(value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Aforo máximo</label>
-                <Input
-                  type="number"
-                  value={customSalaLocalAforoMax}
-                  onChange={(event) => setCustomSalaLocalAforoMax(event.target.value ? Number(event.target.value) : '')}
+                <NumberInput
+                  value={typeof customSalaLocalAforoMax === 'number' ? customSalaLocalAforoMax : null}
+                  onChangeValue={(value) => setCustomSalaLocalAforoMax(value)}
                 />
               </div>
             </div>
@@ -1818,7 +1822,7 @@ export function ReservaDetalleContent({
       </Dialog>
 
       <Dialog open={fechaLimiteDialogOpen} onOpenChange={setFechaLimiteDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" onOpenAutoFocus={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Editar fecha límite de pago</DialogTitle>
             <DialogDescription>Selecciona la nueva fecha límite.</DialogDescription>
@@ -1889,7 +1893,7 @@ export function ReservaDetalleContent({
       </Dialog>
 
       <AlertDialog open={confirmLocalOpen} onOpenChange={setConfirmLocalOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent onOpenAutoFocus={(event) => event.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar cambio de local</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1904,7 +1908,7 @@ export function ReservaDetalleContent({
       </AlertDialog>
 
       <Dialog open={espacioDialogOpen} onOpenChange={setEspacioDialogOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl" onOpenAutoFocus={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>
               Cambia el espacio de la reserva en{' '}
@@ -1966,18 +1970,16 @@ export function ReservaDetalleContent({
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Aforo mínimo</label>
-                <Input
-                  type="number"
-                  value={customSalaEspacioAforoMin}
-                  onChange={(event) => setCustomSalaEspacioAforoMin(event.target.value ? Number(event.target.value) : '')}
+                <NumberInput
+                  value={typeof customSalaEspacioAforoMin === 'number' ? customSalaEspacioAforoMin : null}
+                  onChangeValue={(value) => setCustomSalaEspacioAforoMin(value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Aforo máximo</label>
-                <Input
-                  type="number"
-                  value={customSalaEspacioAforoMax}
-                  onChange={(event) => setCustomSalaEspacioAforoMax(event.target.value ? Number(event.target.value) : '')}
+                <NumberInput
+                  value={typeof customSalaEspacioAforoMax === 'number' ? customSalaEspacioAforoMax : null}
+                  onChangeValue={(value) => setCustomSalaEspacioAforoMax(value)}
                 />
               </div>
             </div>
@@ -1998,7 +2000,10 @@ export function ReservaDetalleContent({
       </Dialog>
 
       <Dialog open={eventoDialogOpen} onOpenChange={setEventoDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent
+          className="max-w-lg max-h-[90vh] overflow-y-auto"
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Editar reserva</DialogTitle>
             <DialogDescription>Actualiza fecha, hora y aforo de la reserva.</DialogDescription>
@@ -2030,20 +2035,30 @@ export function ReservaDetalleContent({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-sm font-medium text-slate-700">Aforo mínimo</label>
-              <Input
-                type="number"
+              <NumberInput
                 min={0}
-                value={eventoAforoMin}
-                onChange={(e) => setEventoAforoMin(e.target.value)}
+                value={
+                  typeof eventoAforoMin === 'number'
+                    ? eventoAforoMin
+                    : Number.isNaN(Number(eventoAforoMin))
+                      ? null
+                      : Number(eventoAforoMin)
+                }
+                onChangeValue={(value) => setEventoAforoMin(value == null ? '' : String(value))}
               />
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Aforo máximo</label>
-              <Input
-                type="number"
+              <NumberInput
                 min={0}
-                value={eventoAforoMax}
-                onChange={(e) => setEventoAforoMax(e.target.value)}
+                value={
+                  typeof eventoAforoMax === 'number'
+                    ? eventoAforoMax
+                    : Number.isNaN(Number(eventoAforoMax))
+                      ? null
+                      : Number(eventoAforoMax)
+                }
+                onChangeValue={(value) => setEventoAforoMax(value == null ? '' : String(value))}
               />
             </div>
           </div>
@@ -2137,7 +2152,7 @@ export function ReservaDetalleContent({
       </Dialog>
 
       <AlertDialog open={confirmEspacioOpen} onOpenChange={setConfirmEspacioOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent onOpenAutoFocus={(event) => event.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar cambio de espacio</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2154,11 +2169,13 @@ export function ReservaDetalleContent({
       {packDialogOpen && typeof document !== 'undefined'
         ? createPortal(
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-              <div
-                className="relative flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="px-6 pt-6">
+                <div
+                  className="relative flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+                  onClick={(event) => event.stopPropagation()}
+                  ref={packDialogRef}
+                  tabIndex={-1}
+                >
+                  <div className="px-6 pt-6">
                   <DialogHeader>
                     <DialogTitle>Editar plan</DialogTitle>
                     <DialogDescription>Selecciona el plan y ajusta el contenido para esta reserva.</DialogDescription>
@@ -2289,31 +2306,25 @@ export function ReservaDetalleContent({
                                   <option value="comida">Comida</option>
                                   <option value="bebida">Bebida</option>
                                 </select>
-                                <Input
-                                  type="number"
+                                <NumberInput
                                   min={1}
                                   value={item.cantidad}
-                                  onChange={(event) =>
+                                  onChangeValue={(value) =>
                                     setAdhocEditItems((prev) =>
                                       prev.map((current, idx) =>
-                                        idx === index
-                                          ? { ...current, cantidad: Number(event.target.value) || 1 }
-                                          : current
+                                        idx === index ? { ...current, cantidad: value } : current
                                       )
                                     )
                                   }
                                   className="h-9 text-[12px] w-20"
                                 />
-                                <Input
-                                  type="number"
+                                <NumberInput
                                   min={0}
                                   value={item.precio_unitario}
-                                  onChange={(event) =>
+                                  onChangeValue={(value) =>
                                     setAdhocEditItems((prev) =>
                                       prev.map((current, idx) =>
-                                        idx === index
-                                          ? { ...current, precio_unitario: Number(event.target.value) || 0 }
-                                          : current
+                                        idx === index ? { ...current, precio_unitario: value } : current
                                       )
                                     )
                                   }
@@ -2352,21 +2363,17 @@ export function ReservaDetalleContent({
                               <option value="comida">Comida</option>
                               <option value="bebida">Bebida</option>
                             </select>
-                            <Input
-                              type="number"
+                            <NumberInput
                               min={1}
                               value={adhocManualCantidad}
-                              onChange={(event) => setAdhocManualCantidad(Number(event.target.value) || 1)}
+                              onChangeValue={(value) => setAdhocManualCantidad(value)}
                               placeholder="Cantidad"
                               className="h-9 text-[12px]"
                             />
-                            <Input
-                              type="number"
+                            <NumberInput
                               min={0}
-                              value={adhocManualPrecio}
-                              onChange={(event) =>
-                                setAdhocManualPrecio(event.target.value ? Number(event.target.value) : '')
-                              }
+                              value={typeof adhocManualPrecio === 'number' ? adhocManualPrecio : null}
+                              onChangeValue={(value) => setAdhocManualPrecio(value)}
                               placeholder="Precio"
                               className="h-9 text-[12px]"
                             />
@@ -2425,10 +2432,9 @@ export function ReservaDetalleContent({
                           </div>
                           <div>
                             <label className="text-sm font-medium text-slate-700">Precio (€)</label>
-                            <Input
-                              type="number"
-                              value={String(anticipoPrecio ?? 0)}
-                              onChange={(event) => setAnticipoPrecio(Number(event.target.value))}
+                            <NumberInput
+                              value={anticipoPrecio ?? 0}
+                              onChangeValue={(value) => setAnticipoPrecio(value)}
                             />
                           </div>
                         </div>
@@ -2534,7 +2540,7 @@ export function ReservaDetalleContent({
         : null}
 
       <Dialog open={confirmSinCompraOpen} onOpenChange={setConfirmSinCompraOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" onOpenAutoFocus={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Habilitar consumo libre en el local</DialogTitle>
             <DialogDescription>

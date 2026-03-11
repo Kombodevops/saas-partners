@@ -21,11 +21,11 @@ export function StepHeader({ currentStep, total, title, description, onBack }: S
           <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
           <p className="text-sm text-slate-500">{description}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           {Array.from({ length: total }).map((_, index) => (
             <div
               key={`step-dot-${index}`}
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                 index <= currentStep ? 'bg-[#7472fd] text-white' : 'bg-slate-100 text-slate-400'
               }`}
             >

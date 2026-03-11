@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type Resolver, useForm } from 'react-hook-form';
 import { RestauranteRacionesSchema, type RestauranteRacionesForm, type RacionForm } from '@/lib/validators/restaurante-raciones';
@@ -142,15 +143,19 @@ export function RacionesCard({ restauranteId, raciones, onUpdated, isOpen, onOpe
                       <FormField
                         control={form.control}
                         name={`raciones.${index}.precio`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Precio</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Precio</FormLabel>
+                          <FormControl>
+                            <NumberInput
+                              value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                              onChangeValue={field.onChange}
+                              onBlur={field.onBlur}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                       />
                     </div>
                     <div className="mt-3">

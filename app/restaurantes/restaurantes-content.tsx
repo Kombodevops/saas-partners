@@ -262,8 +262,8 @@ export function RestaurantesContent() {
                 ].filter(Boolean) as string[];
                 return (
                   <Card key={restaurante.id} className="border-none bg-white shadow-sm">
-                    <CardContent className="grid gap-4 p-5 sm:grid-cols-[140px_1fr_auto] sm:items-center">
-                      <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                  <CardContent className="grid gap-3 p-3 sm:grid-cols-[96px_1fr_auto] sm:items-center">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
                         {cover ? (
                           <img
                             src={cover}
@@ -275,13 +275,13 @@ export function RestaurantesContent() {
                         )}
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-semibold text-slate-900">
+                          <h3 className="text-sm font-semibold text-slate-900">
                             {restaurante.nombreRestaurante || 'Restaurante sin nombre'}
                           </h3>
                           <span
-                            className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                               restaurante.abierto
                                 ? 'bg-emerald-50 text-emerald-600'
                                 : 'bg-rose-50 text-rose-600'
@@ -290,8 +290,8 @@ export function RestaurantesContent() {
                             {restaurante.abierto ? 'Abierto' : 'Cerrado'}
                           </span>
                           {missingProfile.length > 0 && (
-                            <div className="group relative flex items-center gap-1 rounded-full bg-[#7472fd]/10 px-2 py-1 text-xs font-semibold text-[#3b3af2]">
-                              <Info className="h-3.5 w-3.5" />
+                            <div className="group relative flex items-center gap-1 rounded-full bg-[#7472fd]/10 px-2 py-0.5 text-[11px] font-semibold text-[#3b3af2]">
+                              <Info className="h-3 w-3" />
                               Completa el perfil
                               <div className="pointer-events-none absolute left-full top-1/2 z-20 ml-2 w-56 -translate-y-1/2 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-600 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
                                 <p className="font-semibold text-slate-700">Mejora la conversión</p>
@@ -308,50 +308,51 @@ export function RestaurantesContent() {
                             <button
                               type="button"
                               onClick={() => router.push(`/restaurantes/${restaurante.id}/datos-fiscales`)}
-                              className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                              className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
                             >
-                              <AlertCircle className="h-3.5 w-3.5" />
+                              <AlertCircle className="h-3 w-3" />
                               Confirma datos fiscales y pagos
                             </button>
                           )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                           <span className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4" />
+                            <MapPin className="h-3.5 w-3.5" />
                             {restaurante.direccion || restaurante.ubicacion || 'Sin direccion'}
                           </span>
                           <span className="flex items-center gap-2">
-                            <UtensilsCrossed className="h-4 w-4" />
+                            <UtensilsCrossed className="h-3.5 w-3.5" />
                             {restaurante.tipoCocina || 'Tipo de cocina sin definir'}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
                           {!restaurante.tieneRaciones && (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-500">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
                               Sin raciones
                             </span>
                           )}
                           {!restaurante.tieneExtras && (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-500">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
                               Sin extras
                             </span>
                           )}
                           {!restaurante.cartaDisponible && (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-500">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
                               Sin carta
                             </span>
                           )}
                           {!restaurante.tieneMasDeUnaImagen && (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-500">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
                               Sin más de una imagen
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
+                          size="sm"
                           className="gap-2 border-slate-200 text-slate-600"
                           onClick={() => router.push(`/restaurantes/${restaurante.id}`)}
                         >

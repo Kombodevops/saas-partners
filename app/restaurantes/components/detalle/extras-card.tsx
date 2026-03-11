@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -176,24 +177,20 @@ export function ExtrasCard({ restauranteId, extras, onUpdated, isOpen, onOpenCha
                       <FormField
                         control={form.control}
                         name={`extras.${index}.precio`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Precio (€)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Precio (€)</FormLabel>
+                          <FormControl>
+                              <NumberInput
                                 step="0.01"
-                                value={field.value ?? ''}
-                                onChange={(event) =>
-                                  field.onChange(
-                                    event.target.value === '' ? undefined : Number(event.target.value)
-                                  )
-                                }
+                                value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                                onChangeValue={field.onChange}
+                                onBlur={field.onBlur}
                               />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                       />
                     </div>
                     <div className="mt-3 grid gap-6">
@@ -278,15 +275,11 @@ export function ExtrasCard({ restauranteId, extras, onUpdated, isOpen, onOpenCha
                           <FormItem>
                             <FormLabel>Tiempo mínimo (horas)</FormLabel>
                             <FormControl>
-                              <Input
-                                type="number"
+                              <NumberInput
                                 min={1}
-                                value={field.value ?? ''}
-                                onChange={(event) =>
-                                  field.onChange(
-                                    event.target.value === '' ? undefined : Number(event.target.value)
-                                  )
-                                }
+                                value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                                onChangeValue={field.onChange}
+                                onBlur={field.onBlur}
                               />
                             </FormControl>
                             <FormMessage />
@@ -341,15 +334,11 @@ export function ExtrasCard({ restauranteId, extras, onUpdated, isOpen, onOpenCha
                           <FormItem>
                             <FormLabel>Unidades mínimas</FormLabel>
                             <FormControl>
-                              <Input
-                                type="number"
+                              <NumberInput
                                 min={1}
-                                value={field.value ?? ''}
-                                onChange={(event) =>
-                                  field.onChange(
-                                    event.target.value === '' ? undefined : Number(event.target.value)
-                                  )
-                                }
+                                value={typeof field.value === 'number' ? field.value : Number(field.value ?? 0)}
+                                onChangeValue={field.onChange}
+                                onBlur={field.onBlur}
                               />
                             </FormControl>
                             <FormMessage />

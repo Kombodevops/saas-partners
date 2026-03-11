@@ -1,6 +1,7 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 
 export type TicketItem = {
   Nombre?: string;
@@ -43,30 +44,27 @@ export function TicketsEditor({ tickets, onChange }: Props) {
             <div className="flex flex-wrap items-center justify-center gap-6">
               <div>
                 <label className="text-xs font-medium text-slate-600">Precio</label>
-                <Input
-                  type="number"
+                <NumberInput
                   className="mt-2 w-24"
-                  value={toText(ticket.Precio ?? '')}
+                  value={typeof ticket.Precio === 'number' ? ticket.Precio : Number(ticket.Precio ?? 0)}
                   disabled={Boolean(ticket.disabled)}
-                  onChange={(event) => {
+                  onChangeValue={(value) => {
                     const next = [...tickets];
-                    next[index] = { ...next[index], Precio: Number(event.target.value) };
+                    next[index] = { ...next[index], Precio: value };
                     onChange(next);
                   }}
                 />
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-600">Cantidad</label>
-                <Input
-                  type="number"
+                <NumberInput
                   className="mt-2 w-24"
                   min={0}
-                  value={toText(ticket.quantity ?? '')}
+                  value={typeof ticket.quantity === 'number' ? ticket.quantity : Number(ticket.quantity ?? 0)}
                   disabled={Boolean(ticket.disabled)}
-                  onChange={(event) => {
+                  onChangeValue={(value) => {
                     const next = [...tickets];
-                    const value = Number(event.target.value);
-                    next[index] = { ...next[index], quantity: Number.isFinite(value) ? Math.max(0, value) : 0 };
+                    next[index] = { ...next[index], quantity: Math.max(0, value) };
                     onChange(next);
                   }}
                 />

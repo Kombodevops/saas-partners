@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, CalendarClock, CheckCircle2, ChevronLeft, Info, Mail, MapPin, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import { AuthService } from '@/lib/services/auth.service';
 import { RestauranteDetalleService } from '@/lib/services/restaurante-detalle.service';
@@ -174,6 +175,8 @@ export function CrearReservaForm() {
   const [createdReservaId, setCreatedReservaId] = useState<string | null>(null);
   const [showCreatedModal, setShowCreatedModal] = useState(false);
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
+  const [showPlanHint, setShowPlanHint] = useState(false);
+  const planHintTimeout = useRef<number | null>(null);
   const { restaurantes, isLoading: restaurantesLoading } = useRestaurantes();
   const isLoading = loading || restaurantesLoading;
 
@@ -215,6 +218,17 @@ export function CrearReservaForm() {
   const isAnticipoPack = watchPackId === 'anticipo_por_persona';
   const isConsumoLibreSinAnticipo = watchPackId === 'sin_compra_anticipada' && !isAnticipoPack;
   const isAdhocPack = watchPackId === 'adhoc';
+  const handlePlanHint = () => {
+    if (hasSala) return;
+    setShowPlanHint(true);
+    if (planHintTimeout.current) {
+      window.clearTimeout(planHintTimeout.current);
+    }
+    planHintTimeout.current = window.setTimeout(() => {
+      setShowPlanHint(false);
+      planHintTimeout.current = null;
+    }, 2000);
+  };
 
   const addQuestion = () => {
     setQuestions((prev) => [
@@ -999,18 +1013,16 @@ export function CrearReservaForm() {
                   </div>
                   <div>
                     <label className="text-[12px] font-medium text-slate-700">Aforo mínimo</label>
-                    <Input
-                      type="number"
-                      value={customSalaAforoMin}
-                      onChange={(event) => setCustomSalaAforoMin(event.target.value ? Number(event.target.value) : '')}
+                    <NumberInput
+                      value={typeof customSalaAforoMin === 'number' ? customSalaAforoMin : null}
+                      onChangeValue={(value) => setCustomSalaAforoMin(value)}
                     />
                   </div>
                   <div>
                     <label className="text-[12px] font-medium text-slate-700">Aforo máximo</label>
-                    <Input
-                      type="number"
-                      value={customSalaAforoMax}
-                      onChange={(event) => setCustomSalaAforoMax(event.target.value ? Number(event.target.value) : '')}
+                    <NumberInput
+                      value={typeof customSalaAforoMax === 'number' ? customSalaAforoMax : null}
+                      onChangeValue={(value) => setCustomSalaAforoMax(value)}
                     />
                   </div>
                 </div>
@@ -1065,26 +1077,41 @@ export function CrearReservaForm() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-[12px] font-medium text-slate-700">Plan</label>
-                <select
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[12px]"
-                  value={watchPackId}
-                  onChange={(event) => form.setValue('packId', event.target.value)}
-                  disabled={!hasSala}
-                >
-                  <option value="">Selecciona un plan</option>
-                  <option value="adhoc">Presupuesto personalizado</option>
-                  {validPacks.map((pack) => (
-                    <option key={pack.id} value={pack.id}>
-                      {pack['Nombre del pack']} · {getPackLabel(pack)}
-                    </option>
-                  ))}
-                {canUseSinCompra && (
-                  <>
-                    <option value="sin_compra_anticipada">Consumo libre en el local</option>
-                    <option value="anticipo_por_persona">Anticipo por persona</option>
-                  </>
-                )}
-                </select>
+                <div className="relative">
+                  <select
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[12px]"
+                    value={watchPackId}
+                    onChange={(event) => form.setValue('packId', event.target.value)}
+                    disabled={!hasSala}
+                  >
+                    <option value="">Selecciona un plan</option>
+                    <option value="adhoc">Presupuesto personalizado</option>
+                    {validPacks.map((pack) => (
+                      <option key={pack.id} value={pack.id}>
+                        {pack['Nombre del pack']} · {getPackLabel(pack)}
+                      </option>
+                    ))}
+                  {canUseSinCompra && (
+                    <>
+                      <option value="sin_compra_anticipada">Consumo libre en el local</option>
+                      <option value="anticipo_por_persona">Anticipo por persona</option>
+                    </>
+                  )}
+                  </select>
+                  {!hasSala && (
+                    <button
+                      type="button"
+                      className="absolute inset-0 cursor-not-allowed"
+                      aria-label="Selecciona un restaurante y un espacio"
+                      onClick={handlePlanHint}
+                    />
+                  )}
+                  {showPlanHint && !hasSala && (
+                    <div className="absolute -top-8 left-0 z-10 rounded-full bg-slate-900 px-3 py-1 text-[11px] text-white shadow">
+                      Selecciona un restaurante y un espacio
+                    </div>
+                  )}
+                </div>
                 {isAdhocPack && (
                   <p className="mt-2 text-[12px] text-slate-500">
                     Este plan permite solo pago completo. No admite división del pago entre invitados.
@@ -1166,11 +1193,10 @@ export function CrearReservaForm() {
                           ))}
                         </select>
                         <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
+                          <NumberInput
                             min={1}
                             value={adhocPlanTicketQty}
-                            onChange={(event) => setAdhocPlanTicketQty(Number(event.target.value) || 1)}
+                            onChangeValue={(value) => setAdhocPlanTicketQty(value)}
                             className="h-9 text-[12px]"
                           />
                           <Button
@@ -1217,11 +1243,10 @@ export function CrearReservaForm() {
                           ))}
                         </select>
                         <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
+                          <NumberInput
                             min={1}
                             value={adhocBarraQty}
-                            onChange={(event) => setAdhocBarraQty(Number(event.target.value) || 1)}
+                            onChangeValue={(value) => setAdhocBarraQty(value)}
                             className="h-9 text-[12px]"
                           />
                           <Button
@@ -1269,11 +1294,10 @@ export function CrearReservaForm() {
                           ))}
                         </select>
                         <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
+                          <NumberInput
                             min={1}
                             value={adhocRacionQty}
-                            onChange={(event) => setAdhocRacionQty(Number(event.target.value) || 1)}
+                            onChangeValue={(value) => setAdhocRacionQty(value)}
                             className="h-9 text-[12px]"
                           />
                           <Button
@@ -1320,19 +1344,17 @@ export function CrearReservaForm() {
                             <option value="comida">Comida</option>
                             <option value="bebida">Bebida</option>
                           </select>
-                          <Input
-                            type="number"
+                          <NumberInput
                             min={1}
                             value={adhocManualQty}
-                            onChange={(event) => setAdhocManualQty(Number(event.target.value) || 1)}
+                            onChangeValue={(value) => setAdhocManualQty(value)}
                             placeholder="Cantidad"
                             className="h-9 text-[12px]"
                           />
-                          <Input
-                            type="number"
+                          <NumberInput
                             min={0}
-                            value={adhocManualPrecio}
-                            onChange={(event) => setAdhocManualPrecio(event.target.value ? Number(event.target.value) : '')}
+                            value={typeof adhocManualPrecio === 'number' ? adhocManualPrecio : null}
+                            onChangeValue={(value) => setAdhocManualPrecio(value)}
                             placeholder="Precio"
                             className="h-9 text-[12px]"
                           />
@@ -1556,10 +1578,9 @@ export function CrearReservaForm() {
                       </div>
                       <div>
                         <label className="text-[12px] font-medium text-slate-700">Precio (€)</label>
-                        <Input
-                          type="number"
+                        <NumberInput
                           value={watchAnticipoPrecio}
-                          onChange={(event) => form.setValue('anticipoPrecio', Number(event.target.value))}
+                          onChangeValue={(value) => form.setValue('anticipoPrecio', value)}
                         />
                       </div>
                     </div>
@@ -1805,7 +1826,7 @@ export function CrearReservaForm() {
                 value={watchNombreUsuario}
                 onChange={(event) => form.setValue('nombreUsuario', event.target.value)}
               />
-              <label className="mt-4 text-[12px] font-medium text-slate-700">Email</label>
+              <label className="mt-4 text-[12px] font-medium text-slate-700">Email del cliente</label>
               <Input
                 type="email"
                 value={watchEmail}

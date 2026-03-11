@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import { CARACTERISTICAS_FIJAS } from '@/lib/validators/restaurante-caracteristicas';
 import type { RestauranteNewForm } from '@/lib/validators/restaurante-new';
@@ -11,6 +12,7 @@ export function SalasStep() {
   const form = useFormContext<RestauranteNewForm>();
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'salas' });
   const [dialogState, setDialogState] = useState<{ index: number; item: string } | null>(null);
+  const [dialogDescription, setDialogDescription] = useState('');
   const restauranteCaracteristicas = form.watch('caracteristicas') ?? {};
 
   const handleToggle = (index: number, item: string) => {
@@ -22,6 +24,22 @@ export function SalasStep() {
       form.setValue(`salas.${index}.caracteristicas`, next, { shouldDirty: true });
       return;
     }
+    setDialogDescription(
+      String(form.getValues(`salas.${index}.caracteristicas.${item}`) ?? '')
+    );
+    setDialogState({ index, item });
+  };
+
+  const handleToggleFromRestaurant = (index: number, item: string) => {
+    const current = form.getValues(`salas.${index}.caracteristicas`) ?? {};
+    const selected = Object.prototype.hasOwnProperty.call(current, item);
+    if (selected) {
+      const next = { ...current };
+      delete next[item];
+      form.setValue(`salas.${index}.caracteristicas`, next, { shouldDirty: true });
+      return;
+    }
+    setDialogDescription(String(restauranteCaracteristicas[item] ?? ''));
     setDialogState({ index, item });
   };
 
@@ -82,14 +100,11 @@ export function SalasStep() {
               </div>
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-slate-600">Precio privatización (€)</p>
-                <Input
-                  type="number"
+                <NumberInput
                   placeholder="Precio privatización"
                   value={form.watch(`salas.${index}.precioPrivatizacion`) ?? 0}
-                  onChange={(event) =>
-                    form.setValue(`salas.${index}.precioPrivatizacion`, Number(event.target.value || 0), {
-                      shouldDirty: true,
-                    })
+                  onChangeValue={(value) =>
+                    form.setValue(`salas.${index}.precioPrivatizacion`, value, { shouldDirty: true })
                   }
                 />
               </div>
@@ -107,23 +122,21 @@ export function SalasStep() {
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-slate-600">Aforo mínimo</p>
-                <Input
-                  type="number"
+                <NumberInput
                   placeholder="Aforo mínimo"
                   value={form.watch(`salas.${index}.aforoMinimo`) ?? 0}
-                  onChange={(event) =>
-                    form.setValue(`salas.${index}.aforoMinimo`, Number(event.target.value || 0), { shouldDirty: true })
+                  onChangeValue={(value) =>
+                    form.setValue(`salas.${index}.aforoMinimo`, value, { shouldDirty: true })
                   }
                 />
               </div>
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-slate-600">Aforo máximo</p>
-                <Input
-                  type="number"
+                <NumberInput
                   placeholder="Aforo máximo"
                   value={form.watch(`salas.${index}.aforoMaximo`) ?? 0}
-                  onChange={(event) =>
-                    form.setValue(`salas.${index}.aforoMaximo`, Number(event.target.value || 0), { shouldDirty: true })
+                  onChangeValue={(value) =>
+                    form.setValue(`salas.${index}.aforoMaximo`, value, { shouldDirty: true })
                   }
                 />
               </div>
@@ -161,7 +174,7 @@ export function SalasStep() {
                           className={`rounded-xl border px-3 py-2 text-left text-sm ${
                             selected ? 'border-emerald-400 bg-emerald-50 text-emerald-600' : 'border-slate-200 text-slate-600'
                           }`}
-                          onClick={() => handleToggle(index, item)}
+                          onClick={() => handleToggleFromRestaurant(index, item)}
                         >
                           {item}
                         </button>
@@ -222,9 +235,7 @@ export function SalasStep() {
       <CharacteristicDialog
         open={!!dialogState}
         title={dialogState?.item ?? ''}
-        description={
-          dialogState ? form.getValues(`salas.${dialogState.index}.caracteristicas.${dialogState.item}`) : ''
-        }
+        description={dialogDescription}
         onCancel={() => setDialogState(null)}
         onSave={handleSaveDescripcion}
       />

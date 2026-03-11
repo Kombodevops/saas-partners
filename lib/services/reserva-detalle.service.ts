@@ -1080,7 +1080,7 @@ export class ReservaDetalleService {
       const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
       const { subject, htmlContent } = buildFechaLimiteEmail({ fechaLimitePago, manageUrl, logoUrl });
 
-      await fetch(MAIL_ENDPOINT, {
+      void fetch(MAIL_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1088,6 +1088,8 @@ export class ReservaDetalleService {
           subject,
           htmlContent,
         }),
+      }).catch((error) => {
+        console.error('[sendFechaLimiteEmail] failed', error);
       });
     }
 
@@ -1105,7 +1107,7 @@ export class ReservaDetalleService {
       const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
       const { subject, htmlContent } = buildCambioEstadoEmail({ accepted, manageUrl, logoUrl });
 
-      await fetch(MAIL_ENDPOINT, {
+      void fetch(MAIL_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1113,6 +1115,8 @@ export class ReservaDetalleService {
           subject,
           htmlContent,
         }),
+      }).catch((error) => {
+        console.error('[sendCambioEstadoEmail] failed', error);
       });
     }
   }
@@ -1128,7 +1132,7 @@ export class ReservaDetalleService {
       const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
       const { subject, htmlContent } = buildExpiradaEstadoEmail({ confirmed, manageUrl, logoUrl });
 
-      await fetch(MAIL_ENDPOINT, {
+      void fetch(MAIL_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1136,6 +1140,8 @@ export class ReservaDetalleService {
           subject,
           htmlContent,
         }),
+      }).catch((error) => {
+        console.error('[sendExpiradaEstadoEmail] failed', error);
       });
     }
   }
@@ -1154,7 +1160,7 @@ export class ReservaDetalleService {
     const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
     const emailTemplate = buildReservaUpdateEmail({ subject, intro, changes, manageUrl, logoUrl });
 
-    await fetch(MAIL_ENDPOINT, {
+    void fetch(MAIL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1162,6 +1168,8 @@ export class ReservaDetalleService {
         subject: emailTemplate.subject,
         htmlContent: emailTemplate.htmlContent,
       }),
+    }).catch((error) => {
+      console.error('[sendReservaUpdateEmail] failed', error);
     });
     return { emailSent: true, missingUser: false, missingEmail: false };
   }
@@ -1173,7 +1181,7 @@ export class ReservaDetalleService {
       const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
       const { subject, htmlContent } = buildReservaManageEmail({ manageUrl, logoUrl });
 
-      await fetch(MAIL_ENDPOINT, {
+      void fetch(MAIL_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1181,6 +1189,8 @@ export class ReservaDetalleService {
           subject,
           htmlContent,
         }),
+      }).catch((error) => {
+        console.error('[sendReservaManageEmail] failed', error);
       });
     }
   }
