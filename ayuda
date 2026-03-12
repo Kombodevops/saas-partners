@@ -1,0 +1,36 @@
+arrancar server -> http-server
+
+http-server . -c-1
+
+killall -9 node
+
+sudo lsof -t -i :3000 | xargs kill -9
+
+
+pruebas en local -> firebase emulators:start --only hosting
+
+npm run dev
+
+sudo npm run build
+
+hosting/push de web ->sudo firebase deploy --only hosting:testpartners
+
+sudo firebase deploy --only hosting
+
+version de npm es lo que daba error npm --version para ver, daba error la >10 y he pouesto la =8
+
+{
+  "projects": {
+    "default": "kombodevopstester"
+  },
+  "targets": {
+    "kombodevopstester": {
+      "hosting": {
+        "testpartners": [
+          "testpartners"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
