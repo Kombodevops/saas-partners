@@ -39,6 +39,7 @@ const NAV_ITEMS = [
   { label: 'Home', href: '/dashboard' },
   { label: 'Reservas', href: '/dashboard/reservas' },
   { label: 'Chats', href: '/dashboard/chats' },
+  { label: 'Analítica', href: '/dashboard/analytics' },
   { label: 'Equipo', href: '/dashboard/equipo' },
   { label: 'Web', href: '/dashboard/web' },
 ];
@@ -57,6 +58,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       return null;
     }
   });
+  const [worker, setWorker] = useState<{ nombre?: string; apellidos?: string } | null>(null);
   const [restaurantes, setRestaurantes] = useState<RestauranteResumen[]>([]);
   const [packs, setPacks] = useState<PackResumen[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -150,10 +152,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           }
         }
 
-        const partnerData = await AuthService.getCurrentPartner();
+        const [partnerData, workerData] = await Promise.all([
+          AuthService.getCurrentPartner(),
+          AuthService.getCurrentWorker(),
+        ]);
         if (!partnerData || !active) return;
 
         setPartner(partnerData);
+        if (active) setWorker(workerData);
 
         const ownerId = partnerData.id;
 
@@ -481,6 +487,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   case '/chats':
                   case '/dashboard/chats':
                     return <MessagesSquare className="h-3.5 w-3.5" />;
+                  case '/dashboard/analytics':
+                    return <BarChart3 className="h-3.5 w-3.5" />;
                   case '/dashboard/equipo':
                     return <Users className="h-3.5 w-3.5" />;
                   case '/web':
@@ -566,12 +574,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   {!isCollapsed && (
                     <div className="text-left">
                       <p className="text-[12px] font-medium text-slate-800">
-                        {(partner as unknown as Record<string, string>)?.['Nombre del negocio'] ||
+                        {worker?.nombre ||
+                          (partner as unknown as Record<string, string>)?.['Nombre del negocio'] ||
                           partner?.nombreNegocio ||
                           'Partner'}
                       </p>
                       <p className="text-[12px] text-slate-400">
-                        {(partner as unknown as Record<string, string>)?.Apellidos || partner?.apellidos || ''}
+                        {worker?.nombre
+                          ? (partner as unknown as Record<string, string>)?.['Nombre del negocio'] ||
+                            partner?.nombreNegocio ||
+                            ''
+                          : (partner as unknown as Record<string, string>)?.Apellidos ||
+                            partner?.apellidos ||
+                            ''}
                       </p>
                     </div>
                   )}

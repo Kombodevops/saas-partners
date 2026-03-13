@@ -190,6 +190,17 @@ const sumAmounts = (items: FacturaDetalle[], allFacturas: FacturaDetalle[], neto
   return items.reduce((acc, item) => acc + (neto ? computeNetoAmount(item, allFacturas) : getAmount(item)), 0);
 };
 
+const isTicketsPlan = (planLabel?: string, servicioPagado?: ServicioPagado | null) => {
+  const label = (planLabel ?? '').toLowerCase();
+  const categoria = (servicioPagado?.categoria ?? '').toLowerCase();
+  return categoria === 'tickets' || label.includes('tickets');
+};
+
+const isAdhocPlan = (planLabel?: string) => {
+  const label = (planLabel ?? '').toLowerCase();
+  return label.includes('presupuesto') || label === 'adhoc';
+};
+
 type PayoutCheckResult = {
   canWithdraw: boolean;
   policyCompliant?: boolean;
@@ -602,6 +613,7 @@ export function FacturasCard({
                         const status = getFacturaStatusLabel(factura);
                         const date = formatDate(getFacturaDate(factura));
                         const quantity = getFacturaQuantity(factura);
+                        const showEntradas = typeof quantity === 'number' && !isTicketsPlan(planLabel, servicioPagado) && !isAdhocPlan(planLabel);
                         const userId = getFacturaUserId(factura);
                         const userName = userId ? asistentesByUserId.get(userId) : undefined;
                         return (
@@ -618,7 +630,7 @@ export function FacturasCard({
                                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                                     {number && <span className="rounded bg-white px-2 py-0.5 text-[11px]">#{number}</span>}
                                     <span className="rounded bg-white px-2 py-0.5 text-[11px] capitalize">{status}</span>
-                                    {typeof quantity === 'number' && (
+                                    {showEntradas && (
                                       <span className="rounded bg-white px-2 py-0.5 text-[11px]">
                                         Entradas: {quantity}
                                       </span>

@@ -40,6 +40,8 @@ export type ReservaCreatePayload = {
     required: boolean;
     options?: string[];
   }>;
+  responsableEquipo?: { id: string; nombre: string; email?: string; role?: string } | null;
+  canal?: string;
 };
 
 const buildPrecio = (payload: ReservaCreatePayload) => {
@@ -208,6 +210,8 @@ export class ReservaCreateService {
       fechaSolicitud: new Date(),
       searchTerms: buildSearchTerms(payload),
       searchTermsUpdated: new Date(),
+      responsableEquipo: payload.responsableEquipo ?? null,
+      canal: payload.canal ?? '',
     };
 
     if (payload.questions && payload.questions.length > 0) {

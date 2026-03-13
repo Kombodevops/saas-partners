@@ -47,6 +47,8 @@ export function MenusEditor({
   const [focusedMenuIndex, setFocusedMenuIndex] = useState<number | null>(null);
   const [isAddingSingle, setIsAddingSingle] = useState(false);
   const [confirmImportAllOpen, setConfirmImportAllOpen] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [successText, setSuccessText] = useState('');
   const skipResetRef = useRef(false);
   const importRef = useRef<HTMLDivElement | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -136,14 +138,22 @@ export function MenusEditor({
     if (!restauranteId) return;
     const nextMenus = menus.map((menu, idx) => (idx === index ? ensureImportMenu(menu) : menu));
     await onSave(nextMenus);
+    const targetName = restauranteNombre || 'el restaurante';
+    setSuccessText(`Se ha añadido el menú a ${targetName}.`);
+    setSuccessDialogOpen(true);
   };
 
   const handleImportAll = async () => {
     if (!restauranteId) return;
+    const addedCount = menus.filter((menu) => !(menu.restaurantesIds ?? []).includes(restauranteId)).length;
     const nextMenus = menus.map((menu) =>
       (menu.restaurantesIds ?? []).includes(restauranteId) ? menu : ensureImportMenu(menu)
     );
     await onSave(nextMenus);
+    const targetName = restauranteNombre || 'el restaurante';
+    const label = addedCount === 1 ? 'Se ha añadido el menú a' : 'Se han añadido los menús a';
+    setSuccessText(`${label} ${targetName}.`);
+    setSuccessDialogOpen(true);
   };
 
   const handleSubmit = async (values: MenusFormValues) => {
@@ -151,6 +161,12 @@ export function MenusEditor({
       setIsSaving(true);
       await onSave(values.menus);
       setOpen(false);
+      if (isAddingSingle) {
+        const targetName = restauranteNombre || '';
+        const label = targetName ? `Se ha añadido el menú a ${targetName}.` : 'Se ha añadido el menú.';
+        setSuccessText(label);
+        setSuccessDialogOpen(true);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -437,6 +453,23 @@ export function MenusEditor({
                     }}
                   >
                     Importar
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+              <DialogContent className="max-w-md">
+                <div className="flex flex-col items-center gap-4 py-2 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shadow-sm animate-pulse">
+                    <CheckCircle2 className="h-9 w-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <DialogTitle>Actualización completada</DialogTitle>
+                    <p className="text-sm text-slate-600">{successText}</p>
+                  </div>
+                  <Button className="bg-[#7472fd] text-white hover:bg-[#5f5bf2]" onClick={() => setSuccessDialogOpen(false)}>
+                    Entendido
                   </Button>
                 </div>
               </DialogContent>

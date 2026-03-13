@@ -1,6 +1,7 @@
 'use client';
 
 import { Calendar, Clock, User, Package, Pencil, Home, DoorOpen, UserCheck } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ReservaDetalle } from '@/lib/services/reserva-detalle.service';
 
@@ -115,20 +116,26 @@ export function ReservaHeader({
   onChangeLocal,
   onChangeEspacio,
   onEditEvento,
+  originBadge,
 }: {
   reserva: ReservaDetalle;
   showClienteContact?: boolean;
   onChangeLocal?: () => void;
   onChangeEspacio?: () => void;
   onEditEvento?: () => void;
+  originBadge?: { label: string; className: string; style?: CSSProperties };
 }) {
   const estadoBadge = getStatusBadge(reserva);
-  const origen =
+  const originFallback =
     typeof reserva.leadKomvo === 'boolean'
       ? reserva.leadKomvo
         ? 'Reserva de Komvo'
         : 'Reserva del restaurante'
       : 'Reserva de Komvo';
+  const originPayload = originBadge ?? {
+    label: originFallback,
+    className: 'border-slate-200 bg-slate-50 text-slate-600',
+  };
 
   const horaInicio = reserva.kombo?.Hora || '--:--';
   const horaFin = reserva.kombo?.horaFin || '';
@@ -195,8 +202,11 @@ export function ReservaHeader({
             <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${estadoBadge.className}`}>
               {estadoBadge.label}
             </span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-600">
-              {origen}
+            <span
+              className={`rounded-full border px-3 py-1 text-sm font-semibold ${originPayload.className}`}
+              style={originPayload.style}
+            >
+              {originPayload.label}
             </span>
           </div>
         </div>

@@ -26,6 +26,8 @@ export const ReservaCreateSchema = z.object({
     )
     .optional()
     .catch([]),
+  responsableId: z.string().optional().catch(''),
+  canal: z.string().optional().catch(''),
 });
 
 export type ReservaCreateForm = z.infer<typeof ReservaCreateSchema>;

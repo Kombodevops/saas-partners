@@ -87,7 +87,7 @@ export default function ChatsPage() {
     setLoading(true);
     const unsubscribe = ChatsService.listenChatsHead({
       partnerId,
-      limitCount: 30,
+      limitCount: 8,
       onlyActive: filterActivo === 'active',
       restauranteId: restauranteFilter !== 'all' ? restauranteFilter : null,
       onChange: (head) => {
@@ -103,7 +103,7 @@ export default function ChatsPage() {
     setLoadingMore(true);
     const page = await ChatsService.getChatsPage({
       partnerId,
-      pageSize: 30,
+      pageSize: 8,
       cursor,
       onlyActive: filterActivo === 'active',
       restauranteId: restauranteFilter !== 'all' ? restauranteFilter : null,
@@ -125,9 +125,16 @@ export default function ChatsPage() {
 
   useEffect(() => {
     if (!loaderRef.current) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) void loadMore();
-    });
+    const list = listRef.current ?? null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const container = listRef.current;
+        const canScroll = container && container.scrollHeight > container.clientHeight + 4;
+        if (!canScroll) return;
+        if (entries[0]?.isIntersecting) void loadMore();
+      },
+      { root: list ?? undefined }
+    );
     observer.observe(loaderRef.current);
     return () => observer.disconnect();
   }, [loadMore]);

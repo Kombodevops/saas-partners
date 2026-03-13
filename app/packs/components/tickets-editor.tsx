@@ -43,6 +43,8 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
   const skipResetRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
   const [confirmImportAllOpen, setConfirmImportAllOpen] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [successText, setSuccessText] = useState('');
   const importRef = useRef<HTMLDivElement | null>(null);
   const [isImportVisible, setIsImportVisible] = useState(false);
   const visible = useMemo(() => tickets, [tickets]);
@@ -137,14 +139,22 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
     if (!restauranteId) return;
     const nextTickets = tickets.map((ticket, idx) => (idx === index ? ensureImportTicket(ticket) : ticket));
     await onSave(nextTickets);
+    const targetName = restauranteNombre || 'el restaurante';
+    setSuccessText(`Se ha añadido el ticket a ${targetName}.`);
+    setSuccessDialogOpen(true);
   };
 
   const handleImportAll = async () => {
     if (!restauranteId) return;
+    const addedCount = tickets.filter((ticket) => !(ticket.restaurantesIds ?? []).includes(restauranteId)).length;
     const nextTickets = tickets.map((ticket) =>
       (ticket.restaurantesIds ?? []).includes(restauranteId) ? ticket : ensureImportTicket(ticket)
     );
     await onSave(nextTickets);
+    const targetName = restauranteNombre || 'el restaurante';
+    const label = addedCount === 1 ? 'Se ha añadido el ticket a' : 'Se han añadido los tickets a';
+    setSuccessText(`${label} ${targetName}.`);
+    setSuccessDialogOpen(true);
   };
 
   const handleSubmit = async (values: TicketsFormValues) => {
@@ -152,6 +162,12 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
       setIsSaving(true);
       await onSave(values.tickets);
       setOpen(false);
+      if (isAddingSingle) {
+        const targetName = restauranteNombre || '';
+        const label = targetName ? `Se ha añadido el ticket a ${targetName}.` : 'Se ha añadido el ticket.';
+        setSuccessText(label);
+        setSuccessDialogOpen(true);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -418,6 +434,23 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
                     }}
                   >
                     Importar
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+              <DialogContent className="max-w-md">
+                <div className="flex flex-col items-center gap-4 py-2 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shadow-sm animate-pulse">
+                    <CheckCircle2 className="h-9 w-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <DialogTitle>Actualización completada</DialogTitle>
+                    <p className="text-sm text-slate-600">{successText}</p>
+                  </div>
+                  <Button className="bg-[#7472fd] text-white hover:bg-[#5f5bf2]" onClick={() => setSuccessDialogOpen(false)}>
+                    Entendido
                   </Button>
                 </div>
               </DialogContent>

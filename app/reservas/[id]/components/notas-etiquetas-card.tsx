@@ -124,13 +124,22 @@ export function NotasEtiquetasCard({ reservaId, notasRaw, etiquetasRaw, onReload
                 </div>
               );
             })}
-            <button
-              type="button"
-              className="text-xs font-semibold text-[#7472fd]"
-              onClick={() => setOpenNota(true)}
-            >
-              Ver notas ({notas.length})
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="text-xs font-semibold text-[#7472fd]"
+                onClick={() => setOpenNota(true)}
+              >
+                Ver notas ({notas.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpenNota(true)}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-[#7472fd] hover:text-[#7472fd]"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
         <div>

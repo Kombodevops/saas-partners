@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, CalendarClock, CheckCircle2, ChevronLeft, Info, Mail, MapPin, Trash2 } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CheckCircle2, ChevronLeft, Info, Mail, MapPin, Plus, Trash2, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,8 @@ import { RestauranteSalaSection } from '@/app/dashboard/reservas/nueva/component
 import { FechaSection } from '@/app/dashboard/reservas/nueva/components/fecha-section';
 import { BarraLibreIntervalo } from '@/app/dashboard/reservas/nueva/components/barra-libre-intervalo';
 import { CrearElementoModal } from '@/app/dashboard/reservas/nueva/components/crear-elemento-modal';
+import { WorkersService } from '@/lib/services/workers.service';
+import { AnalyticsChannelsService } from '@/lib/services/analytics-channels.service';
 
 const TODAY = () => new Date().toISOString().split('T')[0];
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? '';
@@ -165,6 +167,14 @@ export function CrearReservaForm() {
   const [adhocManualTipo, setAdhocManualTipo] = useState<AdhocTipo>('comida');
   const [elements, setElements] = useState<Array<Record<string, unknown>>>([]);
   const [saving, setSaving] = useState(false);
+  const [responsables, setResponsables] = useState<
+    Array<{ id: string; nombre: string; email?: string; role?: string }>
+  >([]);
+  const [canales, setCanales] = useState<string[]>([]);
+  const [canalDraft, setCanalDraft] = useState('');
+  const [savingCanal, setSavingCanal] = useState(false);
+  const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [canalDialogOpen, setCanalDialogOpen] = useState(false);
   const [customSalaEnabled, setCustomSalaEnabled] = useState(false);
   const [customSalaNombre, setCustomSalaNombre] = useState('');
   const [customSalaAforoMin, setCustomSalaAforoMin] = useState<number | ''>('');
@@ -197,6 +207,8 @@ export function CrearReservaForm() {
       anticipoActivo: false,
       anticipoDescripcion: '',
       anticipoPrecio: 0,
+      responsableId: '',
+      canal: '',
     },
   });
 
@@ -207,6 +219,9 @@ export function CrearReservaForm() {
   const watchAforoMax = form.watch('aforoMax');
   const anticipoActivo = form.watch('anticipoActivo');
   const watchEmail = form.watch('email');
+  const watchResponsableId = form.watch('responsableId');
+  const watchCanal = form.watch('canal');
+  const normalizedCanalDraft = canalDraft.trim();
   const watchNombreUsuario = form.watch('nombreUsuario');
   const watchFecha = form.watch('fecha');
   const watchFechaLimite = form.watch('fechaLimite');
@@ -293,6 +308,55 @@ export function CrearReservaForm() {
       }
     };
     load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleAddCanal = async () => {
+    const resolvedPartnerId = partnerId ?? (await AuthService.getCurrentPartnerId());
+    if (!resolvedPartnerId || !normalizedCanalDraft) return;
+    if (canales.some((c) => c.toLowerCase() === normalizedCanalDraft.toLowerCase())) {
+      setCanalDraft('');
+      form.setValue('canal', normalizedCanalDraft);
+      setCanalDialogOpen(false);
+      return;
+    }
+    setSavingCanal(true);
+    try {
+      await AnalyticsChannelsService.addChannel(resolvedPartnerId, normalizedCanalDraft);
+      setCanales((prev) => [...prev, normalizedCanalDraft]);
+      form.setValue('canal', normalizedCanalDraft);
+      setCanalDraft('');
+      setCanalDialogOpen(false);
+    } finally {
+      setSavingCanal(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const partner = await AuthService.getCurrentPartner();
+      if (!partner) return;
+      const [workers, channels] = await Promise.all([
+        WorkersService.listWorkers(partner.id),
+        AnalyticsChannelsService.getChannels(partner.id),
+      ]);
+      if (!active) return;
+      setResponsables(
+        workers
+          .filter((worker) => worker.active)
+          .map((worker) => ({
+            id: worker.id,
+            nombre: worker.nombre,
+            email: worker.email,
+            role: worker.role,
+          }))
+      );
+      setCanales(channels);
+    };
+    void load();
     return () => {
       active = false;
     };
@@ -612,7 +676,7 @@ export function CrearReservaForm() {
     return adhocItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   }, [adhocItems]);
   const adhocTotalUsuarioFinal = useMemo(() => {
-    return adhocTotal * 1.03 + 0.25;
+    return adhocTotal * 1.03 + 0.50;
   }, [adhocTotal]);
 
   const addAdhocItem = (item: Omit<AdhocItem, 'id'>) => {
@@ -712,6 +776,7 @@ export function CrearReservaForm() {
         setError('No se pudo cargar el partner');
         return;
       }
+      setPartnerId(partner.id);
       const cleanedQuestions = questions
         .filter((item) => item.question.trim())
         .filter((item) => (item.question_type === 'choice' ? (item.options ?? []).length >= 2 : true))
@@ -738,6 +803,9 @@ export function CrearReservaForm() {
 
           return base;
         });
+
+      const selectedResponsable =
+        responsables.find((item) => item.id === values.responsableId) ?? null;
 
       const reservaId = await ReservaCreateService.create({
         partnerId: partner.id,
@@ -778,6 +846,15 @@ export function CrearReservaForm() {
         anticipoDescripcion: values.anticipoDescripcion,
         anticipoPrecio: values.anticipoPrecio,
         questions: cleanedQuestions.length ? cleanedQuestions : undefined,
+        responsableEquipo: selectedResponsable
+          ? {
+              id: selectedResponsable.id,
+              nombre: selectedResponsable.nombre,
+              email: selectedResponsable.email,
+              role: selectedResponsable.role,
+            }
+          : null,
+        canal: values.canal || '',
       });
       setCreatedReservaId(reservaId);
       setShowCreatedModal(true);
@@ -1812,6 +1889,76 @@ export function CrearReservaForm() {
 
           <Card className="border-none bg-white shadow-sm">
             <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                    <User className="h-4 w-4" />
+                    Responsable
+                  </div>
+                  <CardTitle className="text-[14px]">Responsable y canal</CardTitle>
+                  <CardDescription>
+                    Asigna un responsable interno y define el canal de esta reserva.
+                  </CardDescription>
+                </div>
+                <div className="flex shrink-0 items-center justify-end gap-2 text-[10px] font-medium">
+                  <div className="flex items-center gap-2 text-emerald-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Paso listo</span>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-[12px] font-medium text-slate-700">Responsable</label>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Persona del equipo que gestionará esta reserva.
+                  </p>
+                  <select
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px]"
+                    value={watchResponsableId}
+                    onChange={(event) => form.setValue('responsableId', event.target.value)}
+                  >
+                    <option value="">Equipo sin asignar</option>
+                    {responsables.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-slate-700">Canal</label>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Indica por dónde llegó la reserva (origen del contacto).
+                  </p>
+                  <select
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px]"
+                    value={watchCanal}
+                    onChange={(event) => form.setValue('canal', event.target.value)}
+                  >
+                    <option value="">Sin canal</option>
+                    {canales.map((canal) => (
+                      <option key={canal} value={canal}>
+                        {canal}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="mt-3 text-[11px] font-semibold text-[#3b3af2] underline underline-offset-4"
+                    onClick={() => setCanalDialogOpen(true)}
+                  >
+                    ¿Quieres añadir un nuevo canal?
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none bg-white shadow-sm">
+            <CardHeader>
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                 <Mail className="h-4 w-4" />
                 Cliente
@@ -1820,18 +1967,24 @@ export function CrearReservaForm() {
               <CardDescription>Datos de contacto para esta reserva.</CardDescription>
             </CardHeader>
             <CardContent>
-              <label className="text-[12px] font-medium text-slate-700">Nombre del cliente</label>
-              <Input
-                type="text"
-                value={watchNombreUsuario}
-                onChange={(event) => form.setValue('nombreUsuario', event.target.value)}
-              />
-              <label className="mt-4 text-[12px] font-medium text-slate-700">Email del cliente</label>
-              <Input
-                type="email"
-                value={watchEmail}
-                onChange={(event) => form.setValue('email', event.target.value)}
-              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-[12px] font-medium text-slate-700">Nombre del cliente</label>
+                  <Input
+                    type="text"
+                    value={watchNombreUsuario}
+                    onChange={(event) => form.setValue('nombreUsuario', event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-slate-700">Email del cliente</label>
+                  <Input
+                    type="email"
+                    value={watchEmail}
+                    onChange={(event) => form.setValue('email', event.target.value)}
+                  />
+                </div>
+              </div>
               {!watchEmail && (
                 <p className="mt-2 text-[12px] text-slate-500">
                   Si no añades email, tendrás que compartir manualmente el enlace de la reserva con el cliente al crearla.
@@ -1839,6 +1992,53 @@ export function CrearReservaForm() {
               )}
             </CardContent>
           </Card>
+
+          <Dialog open={canalDialogOpen} onOpenChange={setCanalDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Añadir canal</DialogTitle>
+                <DialogDescription>Guarda un nuevo canal para clasificar reservas.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <label className="text-[12px] font-medium text-slate-700">Nombre del canal</label>
+                <Input
+                  placeholder="Ej: Instagram, WhatsApp, Referidos"
+                  value={canalDraft}
+                  onChange={(event) => setCanalDraft(event.target.value)}
+                />
+                {canales.length > 0 && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      Canales actuales
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {canales.map((canal) => (
+                        <span
+                          key={canal}
+                          className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600"
+                        >
+                          {canal}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCanalDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-[#7472fd] text-white"
+                  onClick={handleAddCanal}
+                  disabled={!normalizedCanalDraft || savingCanal}
+                >
+                  {savingCanal ? 'Guardando...' : 'Añadir canal'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[10px] text-slate-500">

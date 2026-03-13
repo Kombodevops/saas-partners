@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { CalendarDays, Clock, Filter, MessageCircle, User, Utensils, Calendar, Tag, StickyNote, Package, Plus, Trash2, ArrowUp, UserCheck } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -9,6 +9,16 @@ import { ReservasCalendar } from '@/components/reservations/reservas-calendar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { AuthService } from '@/lib/services/auth.service';
@@ -20,6 +30,7 @@ import {
 } from '@/lib/services/reservas.service';
 import { ChatsService, type ChatItem } from '@/lib/services/chats.service';
 import { ReservasAnalyticsService } from '@/lib/services/reservas-analytics.service';
+import { AnalyticsChannelsService, type AnalyticsChannel } from '@/lib/services/analytics-channels.service';
 import type { DocumentSnapshot } from 'firebase/firestore';
 import { PendienteActionsDialog } from '@/app/dashboard/reservas/components/pendiente-actions-dialog';
 import { useRestaurantes } from '@/components/shared/restaurantes-context';
@@ -260,11 +271,28 @@ const colorToSoft = (color: number) => {
 //   );
 // };
 
-  const getOrigenReserva = (reserva: ReservaItem) => {
-    if (typeof reserva.leadKomvo === 'boolean') {
-      return reserva.leadKomvo ? 'Reserva de Komvo' : 'Reserva del restaurante';
+  const getOrigenReserva = (
+    reserva: ReservaItem,
+    channelMap: Record<string, AnalyticsChannel>
+  ): { label: string; className: string } => {
+    const rawCanal = (reserva as unknown as Record<string, unknown>)?.canal;
+    const canal = typeof rawCanal === 'string' ? rawCanal.trim() : '';
+    if (reserva.leadKomvo === false && canal) {
+      return {
+        label: `Reserva de ${canal}`,
+        className: 'border-slate-200 bg-slate-50 text-slate-700',
+      };
     }
-    return 'Reserva de Komvo';
+    if (reserva.leadKomvo === false) {
+      return {
+        label: 'Reserva del restaurante',
+        className: 'border-slate-200 bg-slate-50 text-slate-700',
+      };
+    }
+    return {
+      label: 'Reserva de Komvo',
+      className: 'border-slate-200 bg-slate-50 text-slate-700',
+    };
   };
 
   const getEstadoKey = (reserva: ReservaItem): string => {
@@ -328,6 +356,7 @@ export default function ReservasDashboardPage() {
   const [responsables, setResponsables] = useState<
     Array<{ id: string; nombre: string; displayName: string; isMe?: boolean }>
   >([]);
+  const [channels, setChannels] = useState<AnalyticsChannel[]>([]);
   const [countsRefresh, setCountsRefresh] = useState(0);
   const [calendarRefresh, setCalendarRefresh] = useState(0);
   const [detailReservaId, setDetailReservaId] = useState<string | null>(null);
@@ -349,6 +378,15 @@ export default function ReservasDashboardPage() {
     from?: Date;
     to?: Date;
   }>({});
+  const channelMap = useMemo(
+    () =>
+      Object.fromEntries(
+        channels
+          .filter((channel) => channel.name)
+          .map((channel) => [channel.name.toLowerCase(), channel])
+      ),
+    [channels]
+  );
   const [counts, setCounts] = useState({
     requiereAccion: 0,
     pendientes: 0,
@@ -362,6 +400,9 @@ export default function ReservasDashboardPage() {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [changeActionById, setChangeActionById] = useState<Record<string, 'accept' | 'reject' | null>>({});
   const [expiredActionById, setExpiredActionById] = useState<Record<string, 'confirm' | 'cancel' | null>>({});
+  const [expiredConfirmOpen, setExpiredConfirmOpen] = useState(false);
+  const [expiredConfirmAction, setExpiredConfirmAction] = useState<'confirm' | 'cancel' | null>(null);
+  const [expiredConfirmReservaId, setExpiredConfirmReservaId] = useState<string | null>(null);
   const [changeDialogReserva, setChangeDialogReserva] = useState<ReservaItem | null>(null);
   const [changeFechaLimite, setChangeFechaLimite] = useState('');
   const [changeFechaError, setChangeFechaError] = useState<string | null>(null);
@@ -516,7 +557,10 @@ export default function ReservasDashboardPage() {
         if (!active) return;
 
         const userId = AuthService.getCurrentUser()?.uid ?? '';
-        const workerList = await WorkersService.listWorkers(partner.id);
+        const [workerList, channelList] = await Promise.all([
+          WorkersService.listWorkers(partner.id),
+          AnalyticsChannelsService.getChannelsWithColors(partner.id),
+        ]);
         const options: Array<{ id: string; nombre: string; displayName: string; isMe?: boolean }> = workerList.map((worker) => {
           const isMe = userId ? worker.id === userId : false;
           return {
@@ -527,6 +571,7 @@ export default function ReservasDashboardPage() {
           };
         });
         setResponsables(options);
+        setChannels(channelList);
         // no-op: realtime listener removed
 
         const nextCounts = await ReservasService.getCountsByPartnerId({ partnerId: partner.id });
@@ -1739,6 +1784,37 @@ export default function ReservasDashboardPage() {
           </DialogContent>
         </Dialog>
 
+        <AlertDialog open={expiredConfirmOpen} onOpenChange={setExpiredConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {expiredConfirmAction === 'confirm'
+                  ? 'Confirmar reserva con el cliente'
+                  : 'Cancelar definitivamente la reserva'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {expiredConfirmAction === 'confirm'
+                  ? 'La reserva pasará a estado aceptado y se notificará al cliente.'
+                  : 'La reserva pasará a estado fallado y se notificará al cliente.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Volver</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (!expiredConfirmAction || !expiredConfirmReservaId) return;
+                  await handleExpiredAction(expiredConfirmReservaId, expiredConfirmAction);
+                  setExpiredConfirmOpen(false);
+                  setExpiredConfirmAction(null);
+                  setExpiredConfirmReservaId(null);
+                }}
+              >
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <div className="px-4 pb-0 mt-0 flex flex-col bg-slate-50">
           {vista === 'calendario' && calendarSummary && (
             <div className="mb-3 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-600">
@@ -1855,9 +1931,16 @@ export default function ReservasDashboardPage() {
                               <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>
                                 {badge.label}
                               </span>
-                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
-                                {getOrigenReserva(reserva)}
-                              </span>
+                              {(() => {
+                                const origen = getOrigenReserva(reserva, channelMap);
+                                return (
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${origen.className}`}
+                                  >
+                                    {origen.label}
+                                  </span>
+                                );
+                              })()}
                               {reserva.requiereAccionPartner && (
                                 <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                                   Requiere acción
@@ -2224,7 +2307,11 @@ export default function ReservasDashboardPage() {
                               size="sm"
                               className="h-7 px-2 text-xs bg-emerald-500 text-white hover:bg-emerald-500"
                               disabled={Boolean(expiredActionById[reserva.id])}
-                              onClick={() => handleExpiredAction(reserva.id, 'confirm')}
+                              onClick={() => {
+                                setExpiredConfirmReservaId(reserva.id);
+                                setExpiredConfirmAction('confirm');
+                                setExpiredConfirmOpen(true);
+                              }}
                             >
                               {expiredActionById[reserva.id] === 'confirm' ? 'Confirmando...' : 'Confirmada con cliente'}
                             </Button>
@@ -2232,7 +2319,11 @@ export default function ReservasDashboardPage() {
                               size="sm"
                               className="h-7 px-2 text-xs bg-rose-500 text-white hover:bg-rose-500"
                               disabled={Boolean(expiredActionById[reserva.id])}
-                              onClick={() => handleExpiredAction(reserva.id, 'cancel')}
+                              onClick={() => {
+                                setExpiredConfirmReservaId(reserva.id);
+                                setExpiredConfirmAction('cancel');
+                                setExpiredConfirmOpen(true);
+                              }}
                             >
                               {expiredActionById[reserva.id] === 'cancel' ? 'Cancelando...' : 'Cancelar definitivamente'}
                             </Button>
@@ -2278,9 +2369,16 @@ export default function ReservasDashboardPage() {
                               <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>
                                 {badge.label}
                               </span>
-                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
-                                {getOrigenReserva(reserva)}
-                              </span>
+                              {(() => {
+                                const origen = getOrigenReserva(reserva, channelMap);
+                                return (
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${origen.className}`}
+                                  >
+                                    {origen.label}
+                                  </span>
+                                );
+                              })()}
                               {reserva.requiereAccionPartner && (
                                 <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                                   Requiere acción
@@ -2649,7 +2747,11 @@ export default function ReservasDashboardPage() {
                                 size="sm"
                                 className="h-7 px-2 text-xs bg-emerald-500 text-white hover:bg-emerald-500"
                                 disabled={Boolean(expiredActionById[reserva.id])}
-                                onClick={() => handleExpiredAction(reserva.id, 'confirm')}
+                                onClick={() => {
+                                  setExpiredConfirmReservaId(reserva.id);
+                                  setExpiredConfirmAction('confirm');
+                                  setExpiredConfirmOpen(true);
+                                }}
                               >
                                 {expiredActionById[reserva.id] === 'confirm' ? 'Confirmando...' : 'Confirmada con cliente'}
                               </Button>
@@ -2657,7 +2759,11 @@ export default function ReservasDashboardPage() {
                                 size="sm"
                                 className="h-7 px-2 text-xs bg-rose-500 text-white hover:bg-rose-500"
                                 disabled={Boolean(expiredActionById[reserva.id])}
-                                onClick={() => handleExpiredAction(reserva.id, 'cancel')}
+                                onClick={() => {
+                                  setExpiredConfirmReservaId(reserva.id);
+                                  setExpiredConfirmAction('cancel');
+                                  setExpiredConfirmOpen(true);
+                                }}
                               >
                                 {expiredActionById[reserva.id] === 'cancel' ? 'Cancelando...' : 'Cancelar definitivamente'}
                               </Button>

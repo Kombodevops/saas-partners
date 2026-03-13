@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { PendienteActionsDialog } from '@/app/dashboard/reservas/components/pendiente-actions-dialog';
-import { Calendar as CalendarIcon, Package as PackageIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Copy, Package as PackageIcon } from 'lucide-react';
 import {
   ReservaDetalleService,
   type ReservaDetalle,
@@ -44,6 +44,7 @@ import { RestauranteDetalleService } from '@/lib/services/restaurante-detalle.se
 import { PackCatalogService, type PackCatalogItem } from '@/lib/services/pack-catalog.service';
 import { AuthService } from '@/lib/services/auth.service';
 import { WorkersService } from '@/lib/services/workers.service';
+import { AnalyticsChannelsService, type AnalyticsChannel } from '@/lib/services/analytics-channels.service';
 import type { RestauranteResumen } from '@/lib/types/restaurante';
 import type { RestauranteDetalleDoc } from '@/lib/validators/restaurante-detalle';
 import { RestauranteSalaSection } from '@/app/dashboard/reservas/nueva/components/restaurante-sala-section';
@@ -110,6 +111,8 @@ export function ReservaDetalleContent({
     Array<{ id: string; nombre: string; email?: string; role?: string; isOwner?: boolean }>
   >([]);
   const [responsableId, setResponsableId] = useState('');
+  const [channels, setChannels] = useState<AnalyticsChannel[]>([]);
+  const [canalDraft, setCanalDraft] = useState('');
   const [cliente, setCliente] = useState<{ email?: string | null; telefono?: string | null }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,11 +140,15 @@ export function ReservaDetalleContent({
   const [savingLocal, setSavingLocal] = useState(false);
   const [savingCambio, setSavingCambio] = useState<'accept' | 'reject' | null>(null);
   const [savingExpiredAction, setSavingExpiredAction] = useState<'confirm' | 'cancel' | null>(null);
+  const [expiredConfirmOpen, setExpiredConfirmOpen] = useState(false);
+  const [expiredConfirmAction, setExpiredConfirmAction] = useState<'confirm' | 'cancel' | null>(null);
   const [emailFailDialog, setEmailFailDialog] = useState(false);
   const [emailFailLink, setEmailFailLink] = useState<string | null>(null);
   const [emailFailCopied, setEmailFailCopied] = useState(false);
   const [emailFailMode, setEmailFailMode] = useState<'confirm' | 'cancel' | null>(null);
+  const [updateEmailFailDialog, setUpdateEmailFailDialog] = useState(false);
   const [cambioDialogOpen, setCambioDialogOpen] = useState(false);
+  const [closeVentaDialogOpen, setCloseVentaDialogOpen] = useState(false);
   const [cambioFechaLimite, setCambioFechaLimite] = useState('');
   const [cambioFechaError, setCambioFechaError] = useState<string | null>(null);
   const [savingEspacio, setSavingEspacio] = useState(false);
@@ -198,6 +205,14 @@ export function ReservaDetalleContent({
 
   const todayIso = useMemo(() => {
     const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+  const yesterdayIso = useMemo(() => {
+    const now = new Date();
+    now.setDate(now.getDate() - 1);
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
@@ -612,6 +627,32 @@ export function ReservaDetalleContent({
     return { canEdit: true, reason: '' };
   }, [reserva, paymentWindowConcluded, hasAsistenciasPagadas, isAdhocPack]);
 
+  const channelMap = useMemo(
+    () =>
+      Object.fromEntries(
+        channels
+          .filter((channel) => channel.name)
+          .map((channel) => [channel.name.toLowerCase(), channel])
+      ),
+    [channels]
+  );
+
+  const originBadge = useMemo(() => {
+    if (!reserva) return null;
+    const rawCanal = (reserva as Record<string, unknown>)?.canal;
+    const canal = typeof rawCanal === 'string' ? rawCanal.trim() : '';
+    if (reserva.leadKomvo === false && canal) {
+      return {
+        label: `Reserva de ${canal}`,
+        className: 'border-slate-200 bg-slate-50 text-slate-600',
+      };
+    }
+    if (reserva.leadKomvo === false) {
+      return { label: 'Reserva del restaurante', className: 'border-slate-200 bg-slate-50 text-slate-600' };
+    }
+    return { label: 'Reserva de Komvo', className: 'border-slate-200 bg-slate-50 text-slate-600' };
+  }, [reserva, channelMap]);
+
   const loadAll = async (options?: { silent?: boolean }) => {
     if (!reservaId) return;
     if (!options?.silent) {
@@ -626,6 +667,11 @@ export function ReservaDetalleContent({
       }
       setReserva(reservaData);
       setResponsableId((reservaData as { responsableEquipo?: { id?: string } | null })?.responsableEquipo?.id ?? '');
+      setCanalDraft(
+        typeof (reservaData as Record<string, unknown>)?.canal === 'string'
+          ? String((reservaData as Record<string, unknown>).canal ?? '')
+          : ''
+      );
 
       const chatData = await ReservaDetalleService.getChatByReservaId(reservaId);
       setChatId(chatData?.id ?? null);
@@ -676,6 +722,18 @@ export function ReservaDetalleContent({
   useEffect(() => {
     if (!reserva?.partnerId) return;
     void loadResponsables(reserva.partnerId);
+  }, [reserva?.partnerId]);
+
+  useEffect(() => {
+    let active = true;
+    if (!reserva?.partnerId) return undefined;
+    void (async () => {
+      const result = await AnalyticsChannelsService.getChannelsWithColors(reserva.partnerId ?? '');
+      if (active) setChannels(result);
+    })();
+    return () => {
+      active = false;
+    };
   }, [reserva?.partnerId]);
 
   const openLocalDialog = async () => {
@@ -754,9 +812,11 @@ export function ReservaDetalleContent({
     try {
       const manageUrl =
         WEB_URL && reserva?.id
-          ? !reserva.leadKomvo && !reserva.pagado
-            ? `${WEB_URL}/pres/${reserva.id}`
-            : `${WEB_URL}/plan/${reserva.id}/gestionar`
+          ? reserva.leadKomvo
+            ? `${WEB_URL}/plan/${reserva.id}/gestionar`
+            : !reserva.pagado
+              ? `${WEB_URL}/pres/${reserva.id}`
+              : `${WEB_URL}/plan/${reserva.id}/gestionar`
           : null;
       if (action === 'confirm') {
         const result = await ReservaDetalleService.confirmarReservaExpirada({ reservaId: reserva.id });
@@ -807,10 +867,13 @@ export function ReservaDetalleContent({
           max: eventoAforoMax ? Number(eventoAforoMax) : '',
         },
       };
-      await ReservaDetalleService.updateReservaEvento({
+      const updateResult = await ReservaDetalleService.updateReservaEvento({
         reservaId: reserva.id,
         kombo: nextKombo,
       });
+      if (updateResult?.missingEmail) {
+        setUpdateEmailFailDialog(true);
+      }
       const currentResponsableId =
         (reserva as { responsableEquipo?: { id?: string } | null })?.responsableEquipo?.id ?? '';
       if (responsableId !== currentResponsableId) {
@@ -825,6 +888,16 @@ export function ReservaDetalleContent({
                 role: selected.role ?? undefined,
               }
             : null,
+        });
+      }
+      const currentCanal =
+        typeof (reserva as Record<string, unknown>)?.canal === 'string'
+          ? String((reserva as Record<string, unknown>).canal ?? '')
+          : '';
+      if (canalDraft !== currentCanal) {
+        await ReservaDetalleService.updateReservaCanal({
+          reservaId: reserva.id,
+          canal: canalDraft ? canalDraft : null,
         });
       }
       await loadAll({ silent: true });
@@ -978,11 +1051,14 @@ export function ReservaDetalleContent({
     setSavingPack(true);
     try {
       const precioPayload = buildPrecioForPackChange();
-      await ReservaDetalleService.updateReservaPack({
+      const updateResult = await ReservaDetalleService.updateReservaPack({
         reservaId: reserva.id,
         pack: selected,
         precio: precioPayload,
       });
+      if (updateResult?.missingEmail) {
+        setUpdateEmailFailDialog(true);
+      }
       await loadAll({ silent: true });
       setPackDialogOpen(false);
     } finally {
@@ -1040,9 +1116,10 @@ export function ReservaDetalleContent({
     if (!reserva || !selectedRestauranteId) return;
     setSavingLocal(true);
     try {
+      let updateResult: { missingEmail?: boolean } | undefined;
       if (customSalaLocalEnabled) {
         if (!customSalaLocalNombre) return;
-        await ReservaDetalleService.updateReservaRestauranteSala({
+        updateResult = await ReservaDetalleService.updateReservaRestauranteSala({
           reservaId: reserva.id,
           restauranteId: selectedRestauranteId,
           salaCustom: {
@@ -1053,11 +1130,14 @@ export function ReservaDetalleContent({
         });
       } else {
         if (!selectedSalaNombre) return;
-        await ReservaDetalleService.updateReservaRestauranteSala({
+        updateResult = await ReservaDetalleService.updateReservaRestauranteSala({
           reservaId: reserva.id,
           restauranteId: selectedRestauranteId,
           salaNombre: selectedSalaNombre,
         });
+      }
+      if (updateResult?.missingEmail) {
+        setUpdateEmailFailDialog(true);
       }
       await loadAll({ silent: true });
       setLocalDialogOpen(false);
@@ -1073,9 +1153,10 @@ export function ReservaDetalleContent({
     if (!restauranteId) return;
     setSavingEspacio(true);
     try {
+      let updateResult: { missingEmail?: boolean } | undefined;
       if (customSalaEspacioEnabled) {
         if (!customSalaEspacioNombre) return;
-        await ReservaDetalleService.updateReservaRestauranteSala({
+        updateResult = await ReservaDetalleService.updateReservaRestauranteSala({
           reservaId: reserva.id,
           restauranteId,
           salaCustom: {
@@ -1086,11 +1167,14 @@ export function ReservaDetalleContent({
         });
       } else {
         if (!selectedSalaNombre) return;
-        await ReservaDetalleService.updateReservaRestauranteSala({
+        updateResult = await ReservaDetalleService.updateReservaRestauranteSala({
           reservaId: reserva.id,
           restauranteId,
           salaNombre: selectedSalaNombre,
         });
+      }
+      if (updateResult?.missingEmail) {
+        setUpdateEmailFailDialog(true);
       }
       await loadAll({ silent: true });
       setEspacioDialogOpen(false);
@@ -1168,7 +1252,10 @@ export function ReservaDetalleContent({
                   size="sm"
                   className="h-9 px-4 text-sm bg-emerald-500 text-white hover:bg-emerald-500"
                   disabled={savingExpiredAction === 'confirm' || savingExpiredAction === 'cancel'}
-                  onClick={() => handleExpiredAction('confirm')}
+                  onClick={() => {
+                    setExpiredConfirmAction('confirm');
+                    setExpiredConfirmOpen(true);
+                  }}
                 >
                   {savingExpiredAction === 'confirm' ? 'Confirmando...' : 'Confirmada con cliente'}
                 </Button>
@@ -1176,7 +1263,10 @@ export function ReservaDetalleContent({
                   size="sm"
                   className="h-9 px-4 text-sm bg-rose-500 text-white hover:bg-rose-500"
                   disabled={savingExpiredAction === 'confirm' || savingExpiredAction === 'cancel'}
-                  onClick={() => handleExpiredAction('cancel')}
+                  onClick={() => {
+                    setExpiredConfirmAction('cancel');
+                    setExpiredConfirmOpen(true);
+                  }}
                 >
                   {savingExpiredAction === 'cancel' ? 'Cancelando...' : 'Cancelar definitivamente'}
                 </Button>
@@ -1271,12 +1361,27 @@ export function ReservaDetalleContent({
           </DialogContent>
         </Dialog>
 
+        <Dialog open={updateEmailFailDialog} onOpenChange={setUpdateEmailFailDialog}>
+          <DialogContent className="max-w-md" onOpenAutoFocus={(event) => event.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>No se pudo enviar el correo</DialogTitle>
+              <DialogDescription>
+                No encontramos un email del usuario en la reserva ni en la cuenta. Tendrás que avisarle manualmente.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => setUpdateEmailFailDialog(false)}>Cerrar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <ReservaHeader
           reserva={reserva}
           showClienteContact={!isKomvo}
           onChangeLocal={openLocalDialog}
           onChangeEspacio={openEspacioDialog}
           onEditEvento={openEventoDialog}
+          originBadge={originBadge ?? undefined}
         />
 
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
@@ -1399,7 +1504,41 @@ export function ReservaDetalleContent({
                 </CardContent>
               </Card>
             )}
-            {!isKomvo && (
+            {reserva.leadKomvo ? (
+              <Card className="border-none bg-white shadow-sm">
+                <CardHeader>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Compartir enlace
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-600">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="break-all text-xs text-slate-600">
+                      {WEB_URL && reserva?.id ? `${WEB_URL}/plan/${reserva.id}/gestionar` : '—'}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (!WEB_URL || !reserva?.id) return;
+                          try {
+                            await navigator.clipboard.writeText(`${WEB_URL}/plan/${reserva.id}/gestionar`);
+                            setEmailFailCopied(true);
+                            window.setTimeout(() => setEmailFailCopied(false), 1500);
+                          } catch {}
+                        }}
+                        className="gap-2"
+                      >
+                        <Copy className="h-4 w-4" />
+                        {emailFailCopied ? 'Copiado' : 'Copiar enlace'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
               <ClienteCard
                 nombre={reserva.usuario?.['Nombre de usuario']}
                 email={cliente.email}
@@ -1413,7 +1552,7 @@ export function ReservaDetalleContent({
                           !reserva.pagado &&
                           (reserva.tipoCompra ?? '').toLowerCase() !== 'entradas'
                         ? `${WEB_URL}/pres/${reserva.id}`
-                      : `${WEB_URL}/plan/${reserva.id}/gestionar`
+                        : `${WEB_URL}/plan/${reserva.id}/gestionar`
                     : null
                 }
                 userId={reserva.usuario?.id ?? null}
@@ -1709,18 +1848,43 @@ export function ReservaDetalleContent({
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Pago</p>
                       <p className="text-base font-semibold text-slate-900">
-                        {isFlexibleNoAnticipo ? 'Fecha límite de asistentes' : 'Fecha límite de pago'}
+                        {(() => {
+                          const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
+                          if (tipoCompra === 'entradas') return 'Plazo de compra';
+                          return isFlexibleNoAnticipo ? 'Fecha límite de asistentes' : 'Fecha límite de pago';
+                        })()}
                       </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={openFechaLimiteDialog}
-                    >
-                      <CalendarIcon className="h-4 w-4" />
-                      Editar fecha
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
+                        if (tipoCompra !== 'entradas' || paymentWindowConcluded) return null;
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            disabled={savingFechaLimite}
+                            onClick={() => setCloseVentaDialogOpen(true)}
+                          >
+                            Cerrar plazo
+                          </Button>
+                        );
+                      })()}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={openFechaLimiteDialog}
+                      >
+                        <CalendarIcon className="h-4 w-4" />
+                        {(() => {
+                          const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
+                          if (tipoCompra !== 'entradas') return 'Editar fecha';
+                          return paymentWindowConcluded ? 'Ampliar fecha' : 'Editar fecha';
+                        })()}
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-sm text-slate-600">
                     {reserva.fechaLimitePago ? formatDate(reserva.fechaLimitePago) : 'Sin fecha'}
@@ -1731,8 +1895,8 @@ export function ReservaDetalleContent({
                         const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
                         if (tipoCompra === 'entradas') {
                           return paymentWindowConcluded
-                            ? 'Cada cliente ha pagado su parte del plan.'
-                            : 'Cada cliente pagará su parte del plan.';
+                            ? 'El plazo para comprar la parte del plan ha concluido.'
+                            : 'El plazo para comprar la parte del plan está abierto.';
                         }
                         return reserva.pagado
                           ? 'El cliente ha pagado la totalidad del plan.'
@@ -1891,6 +2055,74 @@ export function ReservaDetalleContent({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={closeVentaDialogOpen} onOpenChange={setCloseVentaDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cerrar plazo de compra</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se cerrará la venta de entradas estableciendo la fecha límite en el día anterior al actual.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!reserva?.id) return;
+                setSavingFechaLimite(true);
+                try {
+                  const result = await ReservaDetalleService.updateFechaLimitePago({
+                    reservaId: reserva.id,
+                    fechaLimitePago: yesterdayIso,
+                    usuarioId: reserva.usuario?.id,
+                    usuarioEmail: reserva.usuario?.Email ?? null,
+                  });
+                  if (result.missingUser || result.missingEmail) {
+                    setFechaLimiteMessage(
+                      'Esta reserva no tiene usuario asociado o email. Debes avisar manualmente al cliente.'
+                    );
+                  }
+                  await loadAll({ silent: true });
+                } finally {
+                  setSavingFechaLimite(false);
+                }
+              }}
+            >
+              Confirmar cierre
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={expiredConfirmOpen} onOpenChange={setExpiredConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {expiredConfirmAction === 'confirm'
+                ? 'Confirmar reserva con el cliente'
+                : 'Cancelar definitivamente la reserva'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {expiredConfirmAction === 'confirm'
+                ? 'La reserva pasará a estado aceptado y se notificará al cliente.'
+                : 'La reserva pasará a estado fallado y se notificará al cliente.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!expiredConfirmAction) return;
+                await handleExpiredAction(expiredConfirmAction);
+                setExpiredConfirmOpen(false);
+                setExpiredConfirmAction(null);
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmLocalOpen} onOpenChange={setConfirmLocalOpen}>
         <AlertDialogContent onOpenAutoFocus={(event) => event.preventDefault()}>
@@ -2073,6 +2305,21 @@ export function ReservaDetalleContent({
               {responsables.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Canal</label>
+            <select
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              value={canalDraft}
+              onChange={(event) => setCanalDraft(event.target.value)}
+            >
+              <option value="">Sin canal</option>
+              {channels.map((item) => (
+                <option key={item.name} value={item.name}>
+                  {item.name}
                 </option>
               ))}
             </select>

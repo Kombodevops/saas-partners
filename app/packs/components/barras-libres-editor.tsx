@@ -44,6 +44,8 @@ export function BarrasLibresEditor({
   const skipResetRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
   const [confirmImportAllOpen, setConfirmImportAllOpen] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [successText, setSuccessText] = useState('');
   const importRef = useRef<HTMLDivElement | null>(null);
   const [isImportVisible, setIsImportVisible] = useState(false);
   const visible = useMemo(() => barras, [barras]);
@@ -170,14 +172,22 @@ export function BarrasLibresEditor({
     if (!restauranteId) return;
     const nextBarras = barras.map((barra, idx) => (idx === index ? ensureImportBarra(barra) : barra));
     await onSave(nextBarras);
+    const targetName = restauranteNombre || 'el restaurante';
+    setSuccessText(`Se ha añadido la barra libre a ${targetName}.`);
+    setSuccessDialogOpen(true);
   };
 
   const handleImportAll = async () => {
     if (!restauranteId) return;
+    const addedCount = barras.filter((barra) => !(barra.restaurantesIds ?? []).includes(restauranteId)).length;
     const nextBarras = barras.map((barra) =>
       (barra.restaurantesIds ?? []).includes(restauranteId) ? barra : ensureImportBarra(barra)
     );
     await onSave(nextBarras);
+    const targetName = restauranteNombre || 'el restaurante';
+    const label = addedCount === 1 ? 'Se ha añadido la barra libre a' : 'Se han añadido las barras libres a';
+    setSuccessText(`${label} ${targetName}.`);
+    setSuccessDialogOpen(true);
   };
 
   const handleSubmit = async (values: BarrasFormValues) => {
@@ -185,6 +195,12 @@ export function BarrasLibresEditor({
       setIsSaving(true);
       await onSave(values.barras);
       setOpen(false);
+      if (isAddingSingle) {
+        const targetName = restauranteNombre || '';
+        const label = targetName ? `Se ha añadido la barra libre a ${targetName}.` : 'Se ha añadido la barra libre.';
+        setSuccessText(label);
+        setSuccessDialogOpen(true);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -480,6 +496,23 @@ export function BarrasLibresEditor({
                     }}
                   >
                     Importar
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+              <DialogContent className="max-w-md">
+                <div className="flex flex-col items-center gap-4 py-2 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shadow-sm animate-pulse">
+                    <CheckCircle2 className="h-9 w-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <DialogTitle>Actualización completada</DialogTitle>
+                    <p className="text-sm text-slate-600">{successText}</p>
+                  </div>
+                  <Button className="bg-[#7472fd] text-white hover:bg-[#5f5bf2]" onClick={() => setSuccessDialogOpen(false)}>
+                    Entendido
                   </Button>
                 </div>
               </DialogContent>

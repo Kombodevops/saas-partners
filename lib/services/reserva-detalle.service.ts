@@ -989,7 +989,7 @@ export class ReservaDetalleService {
       fechaActualizacion: new Date(),
     });
 
-    await this.sendReservaUpdateEmail({
+    return await this.sendReservaUpdateEmail({
       reservaId,
       subject: 'Reserva actualizada',
       intro: 'El restaurante ha actualizado el local o el espacio de tu reserva.',
@@ -1011,7 +1011,7 @@ export class ReservaDetalleService {
     if (precio) payload.precio = precio;
     await updateDoc(ref, payload);
 
-    await this.sendReservaUpdateEmail({
+    return await this.sendReservaUpdateEmail({
       reservaId,
       subject: 'Reserva actualizada',
       intro: 'El restaurante ha actualizado el plan de tu reserva.',
@@ -1037,7 +1037,7 @@ export class ReservaDetalleService {
     const grupo = (kombo as Record<string, unknown>)?.['Tamaño del grupo'] as Record<string, unknown> | undefined;
     const aforoMin = grupo?.min ?? '';
     const aforoMax = grupo?.max ?? '';
-    await this.sendReservaUpdateEmail({
+    return await this.sendReservaUpdateEmail({
       reservaId,
       subject: 'Reserva actualizada',
       intro: 'El restaurante ha actualizado los detalles de tu reserva.',
@@ -1058,6 +1058,16 @@ export class ReservaDetalleService {
     const ref = doc(db, 'reservas', reservaId);
     await updateDoc(ref, {
       responsableEquipo: responsableEquipo ?? null,
+      fechaActualizacion: Timestamp.now(),
+    });
+  }
+
+  static async updateReservaCanal(params: { reservaId: string; canal: string | null }) {
+    const { reservaId, canal } = params;
+    if (!reservaId) return;
+    const ref = doc(db, 'reservas', reservaId);
+    await updateDoc(ref, {
+      canal: canal ?? '',
       fechaActualizacion: Timestamp.now(),
     });
   }
