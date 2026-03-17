@@ -26,9 +26,13 @@ export function PacksCard({
   const consumoLibre = (salas ?? []).filter((sala) => sala.permiteReservaSinCompraAnticipada);
   const consumoLibreActivo = consumoLibre.length > 0;
   const packsList = allPacks && allPacks.length > 0 ? allPacks : packs;
-  const hasMenus = packsList.some((pack) => pack.Categoria === 'Menú');
-  const hasTickets = packsList.some((pack) => pack.Categoria === 'Tickets');
-  const hasBarras = packsList.some((pack) => pack.Subcategoria === 'Barra Libre');
+  const filteredPacks = packsList.filter((pack) => {
+    const categoria = (pack.Categoria ?? '').toLowerCase();
+    return categoria !== 'cocktail' && categoria !== 'flexible';
+  });
+  const hasMenus = filteredPacks.some((pack) => pack.Categoria === 'Menú');
+  const hasTickets = filteredPacks.some((pack) => pack.Categoria === 'Tickets');
+  const hasBarras = filteredPacks.some((pack) => pack.Subcategoria === 'Barra Libre');
 
   return (
     <Card id="packs" className="border-none bg-white shadow-sm">
@@ -90,7 +94,7 @@ export function PacksCard({
           )}
         </div>
 
-        {packsList.map((pack) => {
+        {filteredPacks.map((pack) => {
             const isLinked = restauranteId
               ? Boolean(
                   pack.restaurantesIds?.includes(restauranteId) ||

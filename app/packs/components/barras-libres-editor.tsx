@@ -49,6 +49,10 @@ export function BarrasLibresEditor({
   const importRef = useRef<HTMLDivElement | null>(null);
   const [isImportVisible, setIsImportVisible] = useState(false);
   const visible = useMemo(() => barras, [barras]);
+  const hasImportables = useMemo(
+    () => (restauranteId ? visible.some((barra) => !barra.restaurantesIds?.includes(restauranteId)) : false),
+    [restauranteId, visible]
+  );
   const hasRestaurante = Boolean(restauranteId);
   const hasIncluded = hasRestaurante
     ? barras.some((barra) => barra.restaurantesIds?.includes(restauranteId ?? ''))
@@ -217,7 +221,7 @@ export function BarrasLibresEditor({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-lg font-semibold text-slate-900">Barras libres activas en {restauranteNombre}</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  {!isImportVisible && (
+                  {!isImportVisible && hasImportables && (
                     <Button
                       variant="outline"
                       size="sm"

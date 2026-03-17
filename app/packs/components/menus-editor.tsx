@@ -54,6 +54,10 @@ export function MenusEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [isImportVisible, setIsImportVisible] = useState(false);
   const visible = useMemo(() => menus, [menus]);
+  const hasImportables = useMemo(
+    () => (restauranteId ? visible.some((menu) => !menu.restaurantesIds?.includes(restauranteId)) : false),
+    [restauranteId, visible]
+  );
 
   const form = useForm<MenusFormValues>({
     resolver: zodResolver(MenusFormSchema) as Resolver<MenusFormValues>,
@@ -194,7 +198,7 @@ export function MenusEditor({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-lg font-semibold text-slate-900">Menús activos en {restauranteNombre}</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  {!isImportVisible && (
+                  {!isImportVisible && hasImportables && (
                     <Button
                       variant="outline"
                       size="sm"

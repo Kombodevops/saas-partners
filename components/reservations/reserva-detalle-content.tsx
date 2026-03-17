@@ -194,6 +194,15 @@ export function ReservaDetalleContent({
     return typeof reserva.leadKomvo === 'boolean' ? reserva.leadKomvo : true;
   }, [reserva]);
 
+  useEffect(() => {
+    if (!reserva) return;
+    console.log('[ReservaDetalleContent] leadKomvo debug', {
+      reservaId: reserva.id,
+      leadKomvo: reserva.leadKomvo,
+      isKomvo,
+    });
+  }, [reserva, isKomvo]);
+
   const toInputDate = (value?: string) => {
     if (!value) return '';
     const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -1400,7 +1409,7 @@ export function ReservaDetalleContent({
                 []
               }
               showPaymentStats={reserva.tipoCompra?.toLowerCase() === 'entradas'}
-              isKomvo={Boolean(reserva.leadKomvo)}
+              isKomvo={isKomvo}
               reservaId={reserva.id}
               onReload={() => loadAll({ silent: true })}
             />
@@ -1504,7 +1513,7 @@ export function ReservaDetalleContent({
                 </CardContent>
               </Card>
             )}
-            {reserva.leadKomvo ? (
+            {isKomvo ? (
               <Card className="border-none bg-white shadow-sm">
                 <CardHeader>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">

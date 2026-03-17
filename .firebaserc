@@ -1,0 +1,16 @@
+{
+  "projects": {
+    "default": "kombodevops-f894b"
+  },
+  "targets": {
+    "kombodevops-f894b": {
+      "hosting": {
+        "partners-e03c6": [
+          "partners-e03c6"
+        ]
+      }
+    }
+  },
+  "etags": {}
+
+}

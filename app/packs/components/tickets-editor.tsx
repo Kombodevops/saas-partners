@@ -48,6 +48,10 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
   const importRef = useRef<HTMLDivElement | null>(null);
   const [isImportVisible, setIsImportVisible] = useState(false);
   const visible = useMemo(() => tickets, [tickets]);
+  const hasImportables = useMemo(
+    () => (restauranteId ? visible.some((ticket) => !ticket.restaurantesIds?.includes(restauranteId)) : false),
+    [restauranteId, visible]
+  );
 
   const form = useForm<TicketsFormValues>({
     resolver: zodResolver(TicketsFormSchema) as Resolver<TicketsFormValues>,
@@ -184,7 +188,7 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-lg font-semibold text-slate-900">Tickets activos en {restauranteNombre}</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  {!isImportVisible && (
+                  {!isImportVisible && hasImportables && (
                     <Button
                       variant="outline"
                       size="sm"

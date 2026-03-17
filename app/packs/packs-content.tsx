@@ -76,7 +76,13 @@ export function PacksContent() {
     () => packs.map((pack) => ({ resumen: pack, detalle: packDetallesById.get(pack.id) })),
     [packs, packDetallesById]
   );
-  const resumenPacks = useMemo(() => packsWithDetails.slice(0, 3), [packsWithDetails]);
+  const resumenPacks = useMemo(() => {
+    const filtered = packsWithDetails.filter(({ resumen, detalle }) => {
+      const categoria = (resumen.categoria ?? detalle?.Categoria ?? '').toLowerCase();
+      return categoria !== 'cocktail' && categoria !== 'flexible';
+    });
+    return filtered.slice(0, 3);
+  }, [packsWithDetails]);
   if (isLoading || restaurantesLoading) {
     return (
       <div className="min-h-screen bg-slate-50 px-6 py-10">

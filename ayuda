@@ -13,24 +13,8 @@ npm run dev
 
 sudo npm run build
 
-hosting/push de web ->sudo firebase deploy --only hosting:testpartners
+hosting/push de web ->sudo firebase deploy --only hosting:partners-e03c6
 
 sudo firebase deploy --only hosting
 
 version de npm es lo que daba error npm --version para ver, daba error la >10 y he pouesto la =8
-
-{
-  "projects": {
-    "default": "kombodevopstester"
-  },
-  "targets": {
-    "kombodevopstester": {
-      "hosting": {
-        "testpartners": [
-          "testpartners"
-        ]
-      }
-    }
-  },
-  "etags": {}
-}

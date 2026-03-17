@@ -454,7 +454,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       {partner ? 'Sin planes cargados' : 'Cargando planes'}
                     </div>
                   ) : (
-                    packs.map((pack) => (
+                    packs
+                      .filter((pack) => {
+                        const categoria = (pack.categoria ?? '').toLowerCase();
+                        return categoria !== 'cocktail' && categoria !== 'flexible';
+                      })
+                      .map((pack) => (
                       <button
                         key={pack.id}
                         type="button"
@@ -762,7 +767,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                 Ver packs
                               </Link>
                             ) : (
-                              packs.map((pack) => (
+                              packs
+                                .filter((pack) => {
+                                  const categoria = (pack.categoria ?? '').toLowerCase();
+                                  return categoria !== 'cocktail' && categoria !== 'flexible';
+                                })
+                                .map((pack) => (
                                 <Link
                                   key={pack.id}
                                   href={`/packs/${pack.id}`}
