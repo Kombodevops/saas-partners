@@ -33,6 +33,31 @@ interface MenusEditorProps {
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const SERVICIOS = ['Ambos', 'Sentados', 'De pie (Cocktail)'];
 
+const normalizeMenuRestaurantes = (menu: MenuEditForm): MenuEditForm => {
+  const ids = new Set<string>(
+    (menu.restaurantesIds ?? []).filter(
+      (id): id is string => typeof id === 'string' && id.length > 0
+    )
+  );
+  const disponibilidad = Array.isArray(menu.disponibilidadPorRestaurante)
+    ? menu.disponibilidadPorRestaurante
+    : [];
+  disponibilidad.forEach((entry) => {
+    const restId = (entry as { restauranteId?: unknown })?.restauranteId;
+    if (typeof restId === 'string' && restId) ids.add(restId);
+  });
+  const nextDisponibilidad = [...disponibilidad].filter((entry) => {
+    const restId = (entry as { restauranteId?: unknown })?.restauranteId;
+    return typeof restId === 'string' && ids.has(restId);
+  });
+  ids.forEach((restId) => {
+    if (!nextDisponibilidad.some((entry) => entry.restauranteId === restId)) {
+      nextDisponibilidad.push({ restauranteId: restId, diasDisponibles: [] });
+    }
+  });
+  return { ...menu, restaurantesIds: Array.from(ids), disponibilidadPorRestaurante: nextDisponibilidad };
+};
+
 export function MenusEditor({
   menus,
   onSave,
@@ -140,7 +165,9 @@ export function MenusEditor({
 
   const handleImportMenu = async (index: number) => {
     if (!restauranteId) return;
-    const nextMenus = menus.map((menu, idx) => (idx === index ? ensureImportMenu(menu) : menu));
+    const nextMenus = menus.map((menu, idx) =>
+      idx === index ? ensureImportMenu(menu) : normalizeMenuRestaurantes(menu)
+    );
     await onSave(nextMenus);
     const targetName = restauranteNombre || 'el restaurante';
     setSuccessText(`Se ha añadido el menú a ${targetName}.`);
@@ -151,7 +178,9 @@ export function MenusEditor({
     if (!restauranteId) return;
     const addedCount = menus.filter((menu) => !(menu.restaurantesIds ?? []).includes(restauranteId)).length;
     const nextMenus = menus.map((menu) =>
-      (menu.restaurantesIds ?? []).includes(restauranteId) ? menu : ensureImportMenu(menu)
+      (menu.restaurantesIds ?? []).includes(restauranteId)
+        ? normalizeMenuRestaurantes(menu)
+        : ensureImportMenu(menu)
     );
     await onSave(nextMenus);
     const targetName = restauranteNombre || 'el restaurante';
@@ -163,7 +192,8 @@ export function MenusEditor({
   const handleSubmit = async (values: MenusFormValues) => {
     try {
       setIsSaving(true);
-      await onSave(values.menus);
+      const normalized = values.menus.map(normalizeMenuRestaurantes);
+      await onSave(normalized);
       setOpen(false);
       if (isAddingSingle) {
         const targetName = restauranteNombre || '';
@@ -190,11 +220,7 @@ export function MenusEditor({
   if (restauranteId) {
     return (
       <div id="menus" className="space-y-4 text-sm">
-        {menus.length === 0 ? (
-          <p className="text-slate-500">Sin menús configurados.</p>
-        ) : (
-          <>
-            <div className="rounded-2xl border border-slate-100 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-lg font-semibold text-slate-900">Menús activos en {restauranteNombre}</p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -310,6 +336,9 @@ export function MenusEditor({
                   ))}
                 {visible.filter((menu) => menu.restaurantesIds?.includes(restauranteId)).length === 0 && (
                   <p className="text-sm text-slate-500">No hay menús activos en este local.</p>
+                )}
+                {menus.length === 0 && (
+                  <p className="text-sm text-slate-500">Sin menús configurados.</p>
                 )}
               </div>
             </div>
@@ -478,8 +507,6 @@ export function MenusEditor({
                 </div>
               </DialogContent>
             </Dialog>
-          </>
-        )}
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>

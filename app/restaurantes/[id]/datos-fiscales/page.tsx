@@ -272,7 +272,9 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
   }, [fiscalSources, id, partnerSource]);
   const stripeLocked = Boolean(data?.stripeAccountId);
 
-  const createStripeAccount = async (payload: RestauranteFiscalForm) => {
+  const createStripeAccount = async (
+    payload: RestauranteFiscalForm & { dnifUrl?: string; dnibUrl?: string }
+  ) => {
     if (payload.stripeAccountId) return payload.stripeAccountId;
     const functionUrl = process.env.NEXT_PUBLIC_CREATE_STRIPE_ACCOUNT;
     if (!functionUrl) return '';
@@ -298,6 +300,16 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
       Ciudad: payload.ciudad ?? '',
       CP: payload.cp ?? '',
       isBusiness: payload.businessType === 'empresa',
+      DNIF: {
+        DNIF: {
+          url: payload.dnifUrl ?? '',
+        },
+      },
+      DNIB: {
+        DNIB: {
+          url: payload.dnibUrl ?? '',
+        },
+      },
     };
 
     try {
@@ -485,10 +497,10 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
     setIsSaving(true);
     setIsProcessing(true);
     setProcessingStep(1);
-    await RestauranteDetalleService.uploadDni(id, { front: dniFront, back: dniBack });
+    const { dnifUrl, dnibUrl } = await RestauranteDetalleService.uploadDni(id, { front: dniFront, back: dniBack });
     setProcessingStep(2);
     const contractUrl = await uploadContract(values);
-    const stripeAccountId = await createStripeAccount(values);
+    const stripeAccountId = await createStripeAccount({ ...values, dnifUrl, dnibUrl });
     setProcessingStep(3);
     const payload = { ...values, contrato: contractUrl, stripeAccountId };
     await RestauranteDetalleService.updateDatosFiscales(id, payload);

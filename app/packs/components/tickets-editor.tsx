@@ -180,11 +180,7 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
   if (restauranteId) {
     return (
       <div id="tickets" className="space-y-4 text-sm">
-        {tickets.length === 0 ? (
-          <p className="text-slate-500">Sin tickets configurados.</p>
-        ) : (
-          <>
-            <div className="rounded-2xl border border-slate-100 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-lg font-semibold text-slate-900">Tickets activos en {restauranteNombre}</p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -295,6 +291,9 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
                   ))}
                 {visible.filter((ticket) => ticket.restaurantesIds?.includes(restauranteId)).length === 0 && (
                   <p className="text-sm text-slate-500">No hay tickets activos en este local.</p>
+                )}
+                {tickets.length === 0 && (
+                  <p className="text-sm text-slate-500">Sin tickets configurados.</p>
                 )}
               </div>
             </div>
@@ -459,8 +458,6 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
                 </div>
               </DialogContent>
             </Dialog>
-          </>
-        )}
         <Dialog
           open={open}
           onOpenChange={(nextOpen) => {

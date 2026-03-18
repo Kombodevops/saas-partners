@@ -970,15 +970,15 @@ export function ReservaDetalleContent({
     if (!selectedPack) return;
     if (selectedPack.Categoria === 'Menú' && precioMenu) {
       const match = elements.find((element) => String(element.Nombre) === String(precioMenu.Nombre));
-      setSelectedElement(match ?? { ...precioMenu });
+      setSelectedElement(match ? { ...match, ...precioMenu } : { ...precioMenu });
     }
     if (selectedPack.Categoria === 'Cocktail' && precioCocktail) {
       const match = elements.find((element) => String(element.Nombre) === String(precioCocktail.Nombre));
-      setSelectedElement(match ?? { ...precioCocktail });
+      setSelectedElement(match ? { ...match, ...precioCocktail } : { ...precioCocktail });
     }
     if (selectedPack.Subcategoria === 'Barra Libre' && precioBarra) {
       const match = elements.find((element) => String(element.Nombre) === String(precioBarra.Nombre));
-      setSelectedElement(match ?? { ...precioBarra });
+      setSelectedElement(match ? { ...match, ...precioBarra } : { ...precioBarra });
       setSelectedInterval((precioBarra.intervaloSeleccionado as Record<string, unknown>) ?? null);
     }
     setPackDialogInitialized(true);
@@ -2732,16 +2732,27 @@ export function ReservaDetalleContent({
                         />
                       )}
                       {selectedElement && (
-                        <ElementoEditor
-                          pack={selectedPack}
-                          selectedElement={selectedElement}
-                          selectedInterval={selectedInterval}
-                          restauranteId={restauranteId}
-                          onSave={(element, interval) => {
-                            setSelectedElement(element);
-                            setSelectedInterval(interval);
-                          }}
-                        />
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            {selectedPack.Categoria === 'Menú'
+                              ? 'Menú seleccionado'
+                              : selectedPack.Subcategoria === 'Barra Libre'
+                                ? 'Barra libre seleccionada'
+                                : selectedPack.Categoria === 'Cocktail'
+                                  ? 'Cocktail seleccionado'
+                                  : 'Elemento seleccionado'}
+                          </p>
+                          <ElementoEditor
+                            pack={selectedPack}
+                            selectedElement={selectedElement}
+                            selectedInterval={selectedInterval}
+                            restauranteId={restauranteId}
+                            onSave={(element, interval) => {
+                              setSelectedElement(element);
+                              setSelectedInterval(interval);
+                            }}
+                          />
+                        </div>
                       )}
                       {selectedPack.Subcategoria === 'Barra Libre' && selectedElement && (
                         <BarraLibreIntervalo

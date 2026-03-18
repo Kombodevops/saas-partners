@@ -101,8 +101,19 @@ export class RestauranteDetalleService {
   static async updateSalas(id: string, payload: RestauranteSalasForm): Promise<void> {
     if (!id) return;
     const ref = doc(db, 'restaurants', id);
+    const snap = await getDoc(ref);
+    const current = snap.exists()
+      ? ((snap.data() as { plans_included?: unknown })?.plans_included ?? [])
+      : [];
+    const currentList = Array.isArray(current)
+      ? current.filter((item): item is string => typeof item === 'string')
+      : [];
+    const base = currentList.filter((item) => item !== 'consumo_libre');
+    const hasConsumoLibre = payload.salas.some((sala) => sala.permiteReservaSinCompraAnticipada);
+    const nextPlans = hasConsumoLibre ? Array.from(new Set([...base, 'consumo_libre'])) : base;
     await updateDoc(ref, {
       salas: payload.salas,
+      plans_included: nextPlans,
     });
   }
 

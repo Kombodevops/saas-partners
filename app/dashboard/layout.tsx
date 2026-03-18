@@ -580,23 +580,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <div className="text-left">
                       <p className="text-[12px] font-medium text-slate-800">
                         {worker?.nombre ||
+                          `${partner?.nombre ?? (partner as unknown as Record<string, string>)?.nombre ?? ''} ${
+                            partner?.apellidos ?? (partner as unknown as Record<string, string>)?.apellidos ?? ''
+                          }`.trim() ||
                           (partner as unknown as Record<string, string>)?.['Nombre del negocio'] ||
                           partner?.nombreNegocio ||
                           'Partner'}
                       </p>
-                      <p className="text-[12px] text-slate-400">
+                      <p className="text-[12px] text-slate-400 truncate max-w-[170px]">
                         {worker?.nombre
                           ? (partner as unknown as Record<string, string>)?.['Nombre del negocio'] ||
                             partner?.nombreNegocio ||
                             ''
-                          : (partner as unknown as Record<string, string>)?.Apellidos ||
-                            partner?.apellidos ||
+                          : partner?.email ||
+                            (partner as unknown as Record<string, string>)?.Email ||
                             ''}
                       </p>
                     </div>
                   )}
                   {!isCollapsed && (
-                    <span className="ml-auto">
+                    <span className="ml-auto pr-1">
                       <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
                     </span>
                   )}
@@ -609,6 +612,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         : 'left-0 bottom-12 w-full'
                     }`}
                   >
+                    <Link
+                      href="/dashboard/perfil"
+                      className="flex w-full items-center gap-2 rounded-xl px-1.5 py-1 text-[12px] text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <CircleUserRound className="h-3.5 w-3.5" />
+                      Ver perfil
+                    </Link>
                     <button
                       type="button"
                       onClick={handleSignOut}

@@ -3,9 +3,10 @@ import {
   deleteUser,
   signInWithEmailAndPassword,
   signOut,
+  updateEmail,
   User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Partner } from '../types/partner';
 import type { Worker } from '../types/worker';
@@ -99,6 +100,8 @@ export class AuthService {
 
       const partnerPayload = {
         Email: data.email,
+        nombre: safeValue(data.nombre),
+        apellidos: safeValue(data.apellidos),
         Prefijo: data.prefijo,
         'Número de teléfono': data.telefono,
         reservas: [],
@@ -302,6 +305,33 @@ export class AuthService {
   // Observador de cambios en el estado de autenticación
   static onAuthStateChanged(callback: (user: User | null) => void) {
     return auth.onAuthStateChanged(callback);
+  }
+
+  static async updatePartnerEmail(newEmail: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('No hay usuario autenticado.');
+    const email = newEmail.trim();
+    if (!email) throw new Error('Email inválido.');
+    const functionUrl = process.env.NEXT_PUBLIC_UPDATE_PARTNER_EMAIL;
+    if (functionUrl) {
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid, newEmail: email }),
+      });
+      if (!response.ok) {
+        let message = 'No se pudo actualizar el email.';
+        try {
+          const payload = (await response.json()) as { error?: string };
+          if (payload?.error) message = payload.error;
+        } catch {}
+        throw new Error(message);
+      }
+      await updateDoc(doc(db, 'partners', user.uid), { Email: email });
+      return;
+    }
+    await updateEmail(user, email);
+    await updateDoc(doc(db, 'partners', user.uid), { Email: email });
   }
 
   private static setCachedPartnerId(value: string | null) {

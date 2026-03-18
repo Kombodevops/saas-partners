@@ -278,6 +278,7 @@ export default function NewRestaurantPage() {
         if (coords) break;
       }
 
+      const hasConsumoLibre = salas.some((sala) => sala.permiteReservaSinCompraAnticipada);
       const restauranteData = {
         idPropietario: user.uid,
         'Nombre del restaurante': basico.nombre,
@@ -323,6 +324,7 @@ export default function NewRestaurantPage() {
           return base;
         }),
         salas,
+        plans_included: hasConsumoLibre ? ['consumo_libre'] : [],
         slug: slugify(basico.nombre),
         presupuesto: basico.presupuesto,
       };
