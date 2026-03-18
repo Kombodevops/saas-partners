@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { AuthService } from '@/lib/services/auth.service';
@@ -15,6 +16,11 @@ import { Loader2, LogIn } from 'lucide-react';
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const router = useRouter();
 
   const form = useForm<LoginFormData>({
@@ -41,6 +47,48 @@ export default function LoginPage() {
       setError('Usuario y/o contraseña incorrectos');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    setResetLoading(true);
+    setResetError(null);
+    setResetSuccess(null);
+
+    const email = resetEmail.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      setResetError('Introduce un correo electrónico.');
+      setResetLoading(false);
+      return;
+    }
+    if (!emailRegex.test(email)) {
+      setResetError('Formato de email inválido.');
+      setResetLoading(false);
+      return;
+    }
+
+    try {
+      const endpoint = process.env.NEXT_PUBLIC_SEND_RESET_PASSWORD;
+      if (!endpoint) {
+        throw new Error('No se ha configurado NEXT_PUBLIC_SEND_RESET_PASSWORD.');
+      }
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setResetError(payload?.error || 'No se pudo enviar el correo de recuperación.');
+        return;
+      }
+      setResetSuccess('Te hemos enviado un correo para cambiar la contraseña.');
+    } catch (err) {
+      console.error('Error enviando reset password', err);
+      setResetError('No se pudo enviar el correo de recuperación.');
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -134,6 +182,20 @@ export default function LoginPage() {
                       </>
                     )}
                   </Button>
+
+                  <button
+                    type="button"
+                    className="w-full text-left text-sm font-medium text-slate-600 underline transition-colors hover:text-slate-900"
+                    onClick={() => {
+                      setResetOpen(true);
+                      setResetEmail(form.getValues('email') || '');
+                      setResetError(null);
+                      setResetSuccess(null);
+                    }}
+                    disabled={isLoading}
+                  >
+                    He olvidado mi contraseña
+                  </button>
                 </form>
               </Form>
 
@@ -151,6 +213,71 @@ export default function LoginPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog
+        open={resetOpen}
+        onOpenChange={(nextOpen) => {
+          setResetOpen(nextOpen);
+          if (!nextOpen) {
+            setResetEmail('');
+            setResetError(null);
+            setResetSuccess(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Recuperar contraseña</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-slate-600">
+                Te enviaremos un correo con el enlace para restablecer tu contraseña.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Correo electrónico</label>
+              <Input
+                type="email"
+                placeholder="tu@email.com"
+                value={resetEmail}
+                onChange={(event) => setResetEmail(event.target.value)}
+                disabled={resetLoading}
+                className="h-11 border-slate-200 bg-white/90"
+              />
+            </div>
+            {resetError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {resetError}
+              </div>
+            )}
+            {resetSuccess && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {resetSuccess}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetLoading}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-[#7472fd] text-white hover:bg-[#5f5bf2]"
+                onClick={handlePasswordReset}
+                disabled={resetLoading}
+              >
+                {resetLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  'Enviar correo'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
