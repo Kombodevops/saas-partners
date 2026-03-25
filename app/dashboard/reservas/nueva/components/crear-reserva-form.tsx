@@ -233,6 +233,9 @@ export function CrearReservaForm() {
   const isAnticipoPack = watchPackId === 'anticipo_por_persona';
   const isConsumoLibreSinAnticipo = watchPackId === 'sin_compra_anticipada' && !isAnticipoPack;
   const isAdhocPack = watchPackId === 'adhoc';
+  const normalizedEmail = (watchEmail ?? '').trim();
+  const emailInvalid =
+    Boolean(normalizedEmail) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
   const handlePlanHint = () => {
     if (hasSala) return;
     setShowPlanHint(true);
@@ -593,6 +596,11 @@ export function CrearReservaForm() {
 
   const questionsStepWarning = questionsInvalid ? 'Completa las preguntas' : null;
   const isQuestionsStepComplete = !questionsInvalid;
+  const clienteHasNombre = Boolean(watchNombreUsuario.trim());
+  const clienteHasEmail = Boolean(normalizedEmail);
+  const isClienteStepComplete = clienteHasNombre;
+  const clienteStepWarning = clienteHasNombre ? null : 'Nombre requerido';
+  const clienteStepLabel = clienteHasNombre && !clienteHasEmail ? 'Paso listo (sin email)' : 'Paso listo';
 
   const handleEnableSinCompraSala = async () => {
     if (!watchRestauranteId || !selectedSala) return;
@@ -1724,8 +1732,17 @@ export function CrearReservaForm() {
                 Boolean(watchFechaLimite),
                 Boolean(watchHoraInicio),
                 Boolean(watchHoraFin),
+                Number(watchAforoMin ?? 0) > 0,
+                Number(watchAforoMax ?? 0) > 0,
               ]}
-              isComplete={Boolean(watchFecha && watchFechaLimite && watchHoraInicio && watchHoraFin)}
+              isComplete={Boolean(
+                watchFecha &&
+                  watchFechaLimite &&
+                  watchHoraInicio &&
+                  watchHoraFin &&
+                  Number(watchAforoMin ?? 0) > 0 &&
+                  Number(watchAforoMax ?? 0) > 0
+              )}
               warning={
                 !watchFecha
                   ? 'Selecciona una fecha'
@@ -1735,6 +1752,10 @@ export function CrearReservaForm() {
                       ? 'Selecciona hora inicio'
                       : !watchHoraFin
                         ? 'Selecciona hora fin'
+                        : Number(watchAforoMin ?? 0) <= 0
+                          ? 'Introduce aforo mínimo'
+                          : Number(watchAforoMax ?? 0) <= 0
+                            ? 'Introduce aforo máximo'
                         : null
               }
               onChange={(field, value) => {
@@ -1959,12 +1980,47 @@ export function CrearReservaForm() {
 
           <Card className="border-none bg-white shadow-sm">
             <CardHeader>
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                <Mail className="h-4 w-4" />
-                Cliente
+              <div className="mb-3 flex w-full justify-center">
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${clienteHasNombre ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                  <span
+                    className="h-0.5 w-10 rounded-full"
+                    style={{
+                      background: clienteHasNombre
+                        ? clienteHasEmail
+                          ? '#22c55e'
+                          : 'linear-gradient(to right, #22c55e 50%, #e2e8f0 50%)'
+                        : '#e2e8f0',
+                    }}
+                  />
+                  <span className={`h-2 w-2 rounded-full ${clienteHasEmail ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                </div>
               </div>
-              <CardTitle className="text-[14px]">Contacto</CardTitle>
-              <CardDescription>Datos de contacto para esta reserva.</CardDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                    <Mail className="h-4 w-4" />
+                    Cliente
+                  </div>
+                  <CardTitle className="text-[14px]">Contacto</CardTitle>
+                  <CardDescription>Datos de contacto para esta reserva.</CardDescription>
+                </div>
+                <div className="flex shrink-0 items-center justify-end gap-2 text-[10px] font-medium">
+                  {isClienteStepComplete ? (
+                    <div className="flex items-center gap-2 text-emerald-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>{clienteStepLabel}</span>
+                    </div>
+                  ) : clienteStepWarning ? (
+                    <div className="flex items-center gap-2 text-amber-600">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>{clienteStepWarning}</span>
+                    </div>
+                  ) : (
+                    <span className="text-transparent">.</span>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
@@ -1982,7 +2038,11 @@ export function CrearReservaForm() {
                     type="email"
                     value={watchEmail}
                     onChange={(event) => form.setValue('email', event.target.value)}
+                    aria-invalid={emailInvalid}
                   />
+                  {emailInvalid && (
+                    <p className="mt-1 text-[11px] font-medium text-amber-600">Email inválido</p>
+                  )}
                 </div>
               </div>
               {!watchEmail && (

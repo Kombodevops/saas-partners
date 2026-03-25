@@ -20,6 +20,8 @@ import { StepHeader } from './components/step-header';
 import { StepSidebar } from './components/step-sidebar';
 import { geocodeOSM } from './components/utils';
 import { slugify } from '@/lib/utils/slugify';
+import { buildCaracteristicasDerived } from '@/lib/utils/caracteristicas';
+import { buildSearchQueries } from '@/lib/utils/search-queries';
 import { BasicoStep } from './components/steps/basico-step';
 import { UbicacionStep } from './components/steps/ubicacion-step';
 import { HorariosStep } from './components/steps/horarios-step';
@@ -264,6 +266,14 @@ export default function NewRestaurantPage() {
       const consumiciones = form.getValues('consumiciones');
       const extras = form.getValues('extras');
       const caracteristicas = form.getValues('caracteristicas');
+      const { caracteristicasBool, caracteristicasList } = buildCaracteristicasDerived(caracteristicas);
+      const searchQueries = buildSearchQueries([
+        basico.nombre,
+        ubicacion.direccion,
+        ubicacion.ciudad,
+        ubicacion.codigoPostal,
+        ubicacion.ubicacion,
+      ]);
       const responsable = form.getValues('responsable');
 
       const attempts = [
@@ -304,7 +314,10 @@ export default function NewRestaurantPage() {
         prioridad: 0,
         packs: [],
         caracteristicas,
-        aforo: { min: String(basico.aforoMin), max: String(basico.aforoMax) },
+        caracteristicasBool,
+        caracteristicasList,
+        searchQueries,
+        aforo: { min: basico.aforoMin, max: basico.aforoMax },
         responsable: { nombre: responsable.nombre, telefono: responsable.telefono },
         consumicionesBarra: consumiciones,
         extras: extras.map((extra) => {

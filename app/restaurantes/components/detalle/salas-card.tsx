@@ -42,6 +42,8 @@ export function SalasCard({
   const [editDescripcionKey, setEditDescripcionKey] = useState<string | null>(null);
   const [editDescripcionSalaIndex, setEditDescripcionSalaIndex] = useState<number | null>(null);
   const [editDescripcionValue, setEditDescripcionValue] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [showSaveError, setShowSaveError] = useState(false);
   const list = useMemo(() => salas ?? [], [salas]);
   const dialogOpen = isOpen ?? open;
   const setDialogOpen = onOpenChange ?? setOpen;
@@ -71,12 +73,51 @@ export function SalasCard({
   const handleSubmit = async (values: RestauranteSalasForm) => {
     try {
       setIsSaving(true);
+      setShowSaveError(false);
       await RestauranteDetalleService.updateSalas(restauranteId, values);
       onUpdated(values.salas);
       setDialogOpen(false);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const showSaveErrorMessage = (message: string) => {
+    setSaveError(message);
+    setShowSaveError(true);
+    window.setTimeout(() => setShowSaveError(false), 3000);
+  };
+
+  const handleInvalidSubmit = (errors: Record<string, unknown>) => {
+    const extractMessage = (value: unknown): string | null => {
+      if (!value) return null;
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        if (typeof record.message === 'string') return record.message;
+        if (record.root) {
+          const rootMessage = extractMessage(record.root);
+          if (rootMessage) return rootMessage;
+        }
+        if (Array.isArray(record._errors) && typeof record._errors[0] === 'string') {
+          return record._errors[0];
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const msg = extractMessage(item);
+            if (msg) return msg;
+          }
+          return null;
+        }
+        for (const key of Object.keys(record)) {
+          const msg = extractMessage(record[key]);
+          if (msg) return msg;
+        }
+      }
+      return null;
+    };
+    const message = extractMessage(errors);
+    showSaveErrorMessage(message || 'Revisa los campos obligatorios.');
   };
 
   const addSala = () => {
@@ -205,7 +246,7 @@ export function SalasCard({
               <DialogTitle>Gestionar salas</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-4">
                 {form.watch('salas').map((_, index) => (
                   <div key={`sala-${index}`} className="rounded-2xl border-2 border-slate-800 p-4">
                     <div className="flex items-center justify-between">
@@ -479,9 +520,16 @@ export function SalasCard({
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={isSaving} className="bg-[#7472fd] text-white">
-                    {isSaving ? 'Guardando...' : 'Guardar salas'}
-                  </Button>
+                  <div className="relative">
+                    {showSaveError && (
+                      <div className="absolute right-0 top-[-52px] w-72 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 shadow-[0_10px_25px_rgba(15,23,42,0.12)]">
+                        {saveError}
+                      </div>
+                    )}
+                    <Button type="submit" disabled={isSaving} className="bg-[#7472fd] text-white">
+                      {isSaving ? 'Guardando...' : 'Guardar salas'}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </Form>

@@ -3,8 +3,8 @@ import { z } from 'zod';
 export const SalaSchema = z.object({
   nombre: z.string().min(1, 'Nombre requerido'),
   descripcion: z.string().min(1, 'Descripcion requerida'),
-  aforoMinimo: z.coerce.number().min(0),
-  aforoMaximo: z.coerce.number().min(0),
+  aforoMinimo: z.coerce.number().min(1, 'El aforo mínimo debe ser mayor que 0'),
+  aforoMaximo: z.coerce.number().min(1, 'El aforo máximo debe ser mayor que 0'),
   permiteReservaSinCompraAnticipada: z.boolean(),
   precioPrivatizacion: z.coerce.number().min(0),
   caracteristicas: z.record(z.string(), z.string()).optional().catch({}),

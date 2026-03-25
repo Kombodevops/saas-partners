@@ -631,10 +631,17 @@ export function ReservaDetalleContent({
         return { canEdit: false, reason: 'Hay asistentes con pago confirmado.' };
       }
     } else {
-      if (reserva.pagado) return { canEdit: false, reason: 'La reserva ya está pagada.' };
+      if (reserva.pagado) {
+        return {
+          canEdit: false,
+          reason: isFlexibleNoAnticipo
+            ? 'Reserva sin anticipo: no requiere pago.'
+            : 'La reserva ya está pagada.',
+        };
+      }
     }
     return { canEdit: true, reason: '' };
-  }, [reserva, paymentWindowConcluded, hasAsistenciasPagadas, isAdhocPack]);
+  }, [reserva, paymentWindowConcluded, hasAsistenciasPagadas, isAdhocPack, isFlexibleNoAnticipo]);
 
   const channelMap = useMemo(
     () =>
@@ -1705,8 +1712,19 @@ export function ReservaDetalleContent({
                                     <p className="text-sm font-semibold text-slate-900">{item.name}</p>
                                     {item.quantity > 0 && (
                                       <p className="text-xs text-slate-500">
-                                        {servicioPagadoLabel} · {item.quantity}{' '}
-                                        {servicioPagadoIsPerPerson ? 'personas' : 'ud'}
+                                        {(() => {
+                                          const isTickets = servicioPagadoLabel.toLowerCase() === 'tickets';
+                                          const unitCents =
+                                            typeof item.total === 'number' && item.quantity > 0
+                                              ? item.total / item.quantity
+                                              : null;
+                                          if (isTickets && typeof unitCents === 'number') {
+                                            return `${item.quantity} ud x ${(unitCents / 100).toFixed(2)}€`;
+                                          }
+                                          return `${servicioPagadoLabel} · ${item.quantity} ${
+                                            servicioPagadoIsPerPerson ? 'personas' : 'ud'
+                                          }`;
+                                        })()}
                                       </p>
                                     )}
                                   </div>
@@ -1751,7 +1769,7 @@ export function ReservaDetalleContent({
                       </p>
                       <div className="space-y-3">
                         {hasAnticipo && (
-                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                          <div className="space-y-1">
                             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Anticipo</p>
                             {getStringField(precioAnticipo, 'Descripción') && (
                               <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -1766,7 +1784,7 @@ export function ReservaDetalleContent({
                           </div>
                         )}
                         {hasMenu && (
-                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                          <div className="space-y-1">
                             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Menú</p>
                             {getStringField(precioMenu, 'Nombre') && (
                               <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -1781,7 +1799,7 @@ export function ReservaDetalleContent({
                           </div>
                         )}
                         {hasCocktail && (
-                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                          <div className="space-y-1">
                             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Cocktail</p>
                             {getStringField(precioCocktail, 'Nombre') && (
                               <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -1796,7 +1814,7 @@ export function ReservaDetalleContent({
                           </div>
                         )}
                         {hasBarra && (
-                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                          <div className="space-y-1">
                             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Barra libre</p>
                             {getStringField(precioBarra, 'Nombre') && (
                               <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -1824,22 +1842,46 @@ export function ReservaDetalleContent({
                         )}
                       </div>
                       {ticketItems.length > 0 && (
-                        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Tickets</p>
                             <p className="text-xs text-slate-500">{ticketItems.length} tipos</p>
                           </div>
                           <div className="mt-2 space-y-2">
-                            {ticketItems.map((ticket, index) => (
-                              <div key={`${ticket.ticket ?? 'ticket'}-${index}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                                <p className="text-sm font-semibold text-slate-900">
-                                  {String(ticket.ticket ?? 'Ticket')}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  {String(ticket.quantity ?? 0)} uds · {Number(ticket.price ?? 0).toFixed(2)}€
-                                </p>
-                              </div>
-                            ))}
+                            {ticketItems.map((ticket, index) => {
+                              const quantity = Number(ticket.quantity ?? 0);
+                              const price = Number(ticket.price ?? 0);
+                              const total = quantity * price;
+                              return (
+                                <div
+                                  key={`${ticket.ticket ?? 'ticket'}-${index}`}
+                                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
+                                >
+                                  <div>
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      {String(ticket.ticket ?? 'Ticket')}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                      {String(ticket.quantity ?? 0)} uds · {Number(ticket.price ?? 0).toFixed(2)}€
+                                    </p>
+                                  </div>
+                                  <p className="text-sm font-semibold text-slate-900">{total.toFixed(2)}€</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Total</p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {ticketItems
+                                .reduce(
+                                  (sum, ticket) =>
+                                    sum + Number(ticket.quantity ?? 0) * Number(ticket.price ?? 0),
+                                  0
+                                )
+                                .toFixed(2)}
+                              €
+                            </p>
                           </div>
                         </div>
                       )}
@@ -1906,6 +1948,9 @@ export function ReservaDetalleContent({
                           return paymentWindowConcluded
                             ? 'El plazo para comprar la parte del plan ha concluido.'
                             : 'El plazo para comprar la parte del plan está abierto.';
+                        }
+                        if (isFlexibleNoAnticipo) {
+                          return 'Reserva sin anticipo: no requiere pago.';
                         }
                         return reserva.pagado
                           ? 'El cliente ha pagado la totalidad del plan.'

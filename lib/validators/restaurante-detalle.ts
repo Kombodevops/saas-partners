@@ -75,6 +75,8 @@ export const RestauranteDetalleDocSchema = z
       })
       .catch({ min: 0, max: 0 }),
     caracteristicas: z.record(z.string(), z.string()).optional().catch({}),
+    caracteristicasBool: z.record(z.string(), z.boolean()).optional().catch({}),
+    caracteristicasList: z.array(z.string()).optional().catch([]),
     consumicionesBarra: z.array(ConsumicionBarraSchema).optional().catch([]),
     raciones: z.array(RacionSchema).optional().catch([]),
     Raciones: z.array(RacionSchema).optional().catch([]),

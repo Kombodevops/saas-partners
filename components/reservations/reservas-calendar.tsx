@@ -118,6 +118,7 @@ export function ReservasCalendar({
           const inRange = isInRange(day);
           const isSelected = isSelectedStart || isSelectedEnd;
           const isRangeMiddle = inRange && !isSelected;
+          const isToday = isSameDay(day, new Date());
 
           const dayKey = format(day, 'yyyy-MM-dd');
           const bars = dayStats[dayKey] ?? [];
@@ -133,6 +134,7 @@ export function ReservasCalendar({
                 outside ? 'text-slate-300' : 'text-slate-800',
                 isRangeMiddle ? 'bg-[#7472fd]/10 text-[#3b3af2]' : 'bg-white',
                 isSelected ? 'bg-[#7472fd]/10 text-slate-900 ring-2 ring-[#7472fd]/30' : '',
+                isToday && !isSelected ? 'ring-1 ring-[#7472fd]/50 text-[#3b3af2]' : '',
                 !outside ? 'hover:border hover:border-[#7472fd]/40' : '',
               ].join(' ')}
             >

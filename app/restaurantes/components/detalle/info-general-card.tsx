@@ -120,8 +120,8 @@ export function InfoGeneralCard({
         'Número de teléfono': values.telefono,
         presupuesto: values.presupuesto,
         aforo: {
-          min: String(values.aforoMin),
-          max: String(values.aforoMax),
+          min: values.aforoMin,
+          max: values.aforoMax,
         },
       });
       setDialogOpen(false);

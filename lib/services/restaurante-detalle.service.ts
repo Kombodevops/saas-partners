@@ -12,6 +12,8 @@ import type { RestauranteExtrasForm } from '@/lib/validators/restaurante-extras'
 import type { RestauranteRacionesForm } from '@/lib/validators/restaurante-raciones';
 import type { RestauranteFiscalForm } from '@/lib/validators/restaurante-fiscal';
 import { slugify } from '@/lib/utils/slugify';
+import { buildCaracteristicasDerived } from '@/lib/utils/caracteristicas';
+import { buildSearchQueries } from '@/lib/utils/search-queries';
 
 export class RestauranteDetalleService {
   static async getRestauranteById(id: string): Promise<RestauranteDetalleDoc | null> {
@@ -37,9 +39,16 @@ export class RestauranteDetalleService {
       'Número de teléfono': payload.telefono,
       presupuesto: payload.presupuesto,
       aforo: {
-        min: String(payload.aforoMin),
-        max: String(payload.aforoMax),
+        min: payload.aforoMin,
+        max: payload.aforoMax,
       },
+      searchQueries: buildSearchQueries([
+        payload.nombre,
+        payload.direccion,
+        payload.ciudad,
+        payload.codigoPostal,
+        payload.ubicacion,
+      ]),
     });
   }
 
@@ -92,9 +101,12 @@ export class RestauranteDetalleService {
 
   static async updateCaracteristicas(id: string, caracteristicas: Record<string, string>): Promise<void> {
     if (!id) return;
+    const { caracteristicasBool, caracteristicasList } = buildCaracteristicasDerived(caracteristicas);
     const ref = doc(db, 'restaurants', id);
     await updateDoc(ref, {
       caracteristicas,
+      caracteristicasBool,
+      caracteristicasList,
     });
   }
 

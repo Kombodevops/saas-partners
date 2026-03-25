@@ -182,17 +182,15 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
   return (
     <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
       <Button
-        variant="outline"
         size="sm"
-        className={`${buttonClass} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
+        className={`${buttonClass} bg-emerald-500 text-white hover:bg-emerald-500`}
         onClick={() => setOpenAccept(true)}
       >
         Aceptar reserva
       </Button>
       <Button
-        variant="outline"
         size="sm"
-        className={`${buttonClass} border-rose-200 text-rose-700 hover:bg-rose-50`}
+        className={`${buttonClass} bg-rose-500 text-white hover:bg-rose-500`}
         onClick={() => setOpenReject(true)}
       >
         Rechazar
