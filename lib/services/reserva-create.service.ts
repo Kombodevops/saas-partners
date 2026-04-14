@@ -1,11 +1,8 @@
 import { addDoc, arrayUnion, collection, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import type { PackCatalogItem } from '@/lib/services/pack-catalog.service';
 import type { RestauranteDetalleDoc } from '@/lib/validators/restaurante-detalle';
-import { buildReservaCreadaEmail } from '@/lib/emails/reservas';
-
-const MAIL_ENDPOINT = process.env.NEXT_PUBLIC_SEND_MAIL_URL ?? '';
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? '';
+const RESEND_ENDPOINT = process.env.NEXT_PUBLIC_SEND_RESEND_EMAIL ?? '';
 
 export type ReservaCreatePayload = {
   partnerId: string;
@@ -233,47 +230,28 @@ export class ReservaCreateService {
       });
     }
 
-    if (MAIL_ENDPOINT && WEB_URL && payload.email) {
-      const isConsumoLibreSinAnticipo = payload.packId === 'sin_compra_anticipada' && !payload.anticipoActivo;
-      const manageUrl = isConsumoLibreSinAnticipo
-        ? `${WEB_URL}/plan/${reservaId}/gestionar`
-        : `${WEB_URL}/pres/${reservaId}`;
-      const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
-      const packName =
-        payload.pack?.['Nombre del pack'] ??
-        (payload.packId === 'sin_compra_anticipada'
-          ? 'Consumo libre en el local'
-          : payload.packId === 'adhoc'
-            ? 'Presupuesto personalizado'
-            : 'Reserva');
-      const { subject, htmlContent } = buildReservaCreadaEmail({
-        isAdhoc: payload.packId === 'adhoc',
-        isConsumoLibreSinAnticipo,
-        manageUrl,
-        logoUrl,
-        data: {
-          restauranteNombre: payload.restaurante['Nombre del restaurante'] ?? '',
-          salaNombre: payload.sala?.nombre ?? '',
-          planNombre: packName ?? '',
-          fecha: payload.fecha,
-          horaInicio: payload.horaInicio,
-          horaFin: payload.horaFin,
-          aforoMin: payload.aforoMin,
-          aforoMax: payload.aforoMax,
-        },
-      });
-
-      void fetch(MAIL_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientEmail: payload.email,
-          subject,
-          htmlContent,
-        }),
-      }).catch((error) => {
+    if (RESEND_ENDPOINT && payload.email) {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          await fetch(RESEND_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              data: {
+                reservaId,
+                templateKey: 'cliente_nuevo_presupuesto',
+                isApp: false,
+              },
+            }),
+          });
+        }
+      } catch (error) {
         console.error('[reservaCreate] email failed', error);
-      });
+      }
     }
 
     return reservaId;

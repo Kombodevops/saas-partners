@@ -8,7 +8,7 @@ const DisponibilidadPorRestauranteSchema = z.object({
 export const MenuEditSchema = z.object({
   Nombre: z.string().min(1, 'Nombre requerido'),
   Descripción: z.string().min(1, 'Descripción requerida'),
-  Precio: z.coerce.number().min(0, 'Precio inválido'),
+  Precio: z.coerce.number().min(1, 'Precio requerido'),
   tipoServicio: z.string().optional().catch(''),
   restaurantesIds: z.array(z.string()).optional().catch([]),
   disponibilidadPorRestaurante: z.array(DisponibilidadPorRestauranteSchema).optional().catch([]),
@@ -17,15 +17,15 @@ export const MenuEditSchema = z.object({
 export const TicketEditSchema = z.object({
   Nombre: z.string().min(1, 'Nombre requerido'),
   Descripción: z.string().min(1, 'Descripción requerida'),
-  Precio: z.coerce.number().min(0, 'Precio inválido'),
+  Precio: z.coerce.number().min(1, 'Precio requerido'),
   restaurantesIds: z.array(z.string()).optional().catch([]),
   disponibilidadPorRestaurante: z.array(DisponibilidadPorRestauranteSchema).optional().catch([]),
 });
 
 export const BarraLibreIntervaloSchema = z.object({
-  duracionMin: z.string().min(1, 'Duración mínima requerida'),
-  duracionMax: z.string().min(1, 'Duración máxima requerida'),
-  precio: z.coerce.number().min(0, 'Precio inválido'),
+  duracionMin: z.string().min(1, 'Duración requerida'),
+  duracionMax: z.string().optional().catch(''),
+  precio: z.coerce.number().min(1, 'Precio requerido'),
 });
 
 export const BarraLibreEditSchema = z.object({
@@ -33,7 +33,7 @@ export const BarraLibreEditSchema = z.object({
   Descripción: z.string().min(1, 'Descripción requerida'),
   restaurantesIds: z.array(z.string()).optional().catch([]),
   disponibilidadPorRestaurante: z.array(DisponibilidadPorRestauranteSchema).optional().catch([]),
-  intervalos: z.array(BarraLibreIntervaloSchema).optional().catch([]),
+  intervalos: z.array(BarraLibreIntervaloSchema).min(1, 'Añade al menos una duración'),
 });
 
 export const PackEditSchema = z.object({

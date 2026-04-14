@@ -23,6 +23,7 @@ interface SalasCardProps {
   restauranteId: string;
   salas?: SalaForm[];
   restauranteCaracteristicas?: Record<string, string>;
+  restauranteImagenes?: string[];
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   onUpdated: (next: SalaForm[]) => void;
@@ -32,6 +33,7 @@ export function SalasCard({
   restauranteId,
   salas,
   restauranteCaracteristicas,
+  restauranteImagenes,
   onUpdated,
   isOpen,
   onOpenChange,
@@ -49,6 +51,7 @@ export function SalasCard({
   const setDialogOpen = onOpenChange ?? setOpen;
   const opciones = useMemo(() => Object.keys(restauranteCaracteristicas ?? {}), [restauranteCaracteristicas]);
   const opcionesFijas = useMemo(() => CARACTERISTICAS_FIJAS, []);
+  const imagenesRestaurante = useMemo(() => restauranteImagenes ?? [], [restauranteImagenes]);
 
   const form = useForm<RestauranteSalasForm>({
     resolver: zodResolver(RestauranteSalasSchema) as Resolver<RestauranteSalasForm>,
@@ -66,6 +69,7 @@ export function SalasCard({
         permiteReservaSinCompraAnticipada: sala.permiteReservaSinCompraAnticipada,
         precioPrivatizacion: Number(sala.precioPrivatizacion ?? 0),
         caracteristicas: sala.caracteristicas ?? {},
+        imagenes: sala.imagenes ?? [],
       })),
     });
   }, [form, list, dialogOpen]);
@@ -132,6 +136,7 @@ export function SalasCard({
         permiteReservaSinCompraAnticipada: false,
         precioPrivatizacion: 0,
         caracteristicas: {},
+        imagenes: [],
       },
     ]);
   };
@@ -376,6 +381,67 @@ export function SalasCard({
                       />
                     </div>
                     <div className="mt-4 space-y-4">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Imágenes de la sala</p>
+                        <p className="text-xs text-slate-500">
+                          Selecciona imágenes ya subidas en el restaurante para asociarlas a esta sala.
+                        </p>
+                        {imagenesRestaurante.length === 0 ? (
+                          <p className="mt-2 text-xs text-slate-400">No hay imágenes del restaurante.</p>
+                        ) : (
+                          <FormField
+                            control={form.control}
+                            name={`salas.${index}.imagenes`}
+                            render={({ field }) => {
+                              const current = field.value ?? [];
+                              return (
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                  {imagenesRestaurante.map((url, imgIndex) => {
+                                    const selected = current.includes(url);
+                                    return (
+                                      <button
+                                        key={`${url}-${imgIndex}`}
+                                        type="button"
+                                        className={`group relative overflow-hidden rounded-xl border text-left transition ${
+                                          selected
+                                            ? 'border-[#7472fd] ring-1 ring-[#7472fd]/40'
+                                            : 'border-slate-200 hover:border-[#7472fd]/50'
+                                        }`}
+                                        onClick={() => {
+                                          const next = selected
+                                            ? current.filter((item) => item !== url)
+                                            : [...current, url];
+                                          field.onChange(next);
+                                          form.setValue(`salas.${index}.imagenes`, next, {
+                                            shouldDirty: true,
+                                            shouldTouch: true,
+                                            shouldValidate: true,
+                                          });
+                                        }}
+                                      >
+                                        <div className="aspect-[4/3] w-full bg-slate-100">
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img
+                                            src={url}
+                                            alt={`Imagen ${imgIndex + 1}`}
+                                            className="h-full w-full object-cover"
+                                          />
+                                        </div>
+                                        <div className="flex items-center justify-between px-3 py-2 text-xs text-slate-600">
+                                          <span className="truncate">
+                                            Imagen {imgIndex + 1}
+                                          </span>
+                                          <span className="font-semibold">{selected ? 'Seleccionada' : 'Añadir'}</span>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            }}
+                          />
+                        )}
+                      </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-900">Caracteristicas disponibles</p>
                         <p className="text-xs text-slate-500">

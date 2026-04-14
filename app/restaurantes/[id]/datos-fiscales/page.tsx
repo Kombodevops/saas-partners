@@ -15,6 +15,7 @@ import { RestaurantesService } from '@/lib/services/restaurantes.service';
 import { RestauranteDetalleService } from '@/lib/services/restaurante-detalle.service';
 import { RestauranteFiscalSchema, type RestauranteFiscalForm } from '@/lib/validators/restaurante-fiscal';
 import type { RestauranteDetalleDoc } from '@/lib/validators/restaurante-detalle';
+import { useRestaurantes } from '@/components/shared/restaurantes-context';
 import SignatureCanvas from 'react-signature-canvas';
 import { jsPDF } from 'jspdf';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
@@ -29,6 +30,7 @@ const getValue = (value?: string) => (typeof value === 'string' ? value : '');
 export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const { refresh: refreshRestaurantes } = useRestaurantes();
   const [data, setData] = useState<RestauranteDetalleDoc | null>(null);
   const [fiscalSources, setFiscalSources] = useState<
     {
@@ -362,6 +364,9 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
     await RestauranteDetalleService.updateDatosFiscales(id, payload);
     form.reset(payload);
     setIsSaving(false);
+    try {
+      await refreshRestaurantes({ force: true });
+    } catch {}
     router.push(`/restaurantes/${id}?fiscalAssigned=1`);
   };
 
@@ -507,6 +512,9 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
     setProcessingStep(4);
     setIsSaving(false);
     setIsProcessing(false);
+    try {
+      await refreshRestaurantes({ force: true });
+    } catch {}
     router.push(`/restaurantes/${id}`);
   };
 

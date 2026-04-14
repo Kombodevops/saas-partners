@@ -12,11 +12,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { registerSchema, type RegisterFormData } from '@/lib/validators/register.validator';
 import { AuthService } from '@/lib/services/auth.service';
-import { buildRegisterAdminEmail, buildRegisterPartnerEmail } from '@/lib/emails/register';
+import { auth } from '@/lib/firebase';
 
 const SECTION_CLASSES = 'space-y-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm';
-const MAIL_ENDPOINT = process.env.NEXT_PUBLIC_SEND_MAIL_URL ?? '';
-const KOMVO_EMAIL = process.env.NEXT_PUBLIC_KOMVO_EMAIL ?? '';
+const RESEND_ENDPOINT = process.env.NEXT_PUBLIC_SEND_RESEND_EMAIL ?? '';
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -64,35 +63,22 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       await AuthService.signUp(data, undefined, { createStripe: false });
-      if (MAIL_ENDPOINT && KOMVO_EMAIL) {
-        const logoUrl = process.env.NEXT_PUBLIC_WEB_URL
-          ? `${process.env.NEXT_PUBLIC_WEB_URL}/komvo/logotipo-black.png`
-          : undefined;
-        const adminEmail = buildRegisterAdminEmail(data, logoUrl);
-        void fetch(MAIL_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipientEmail: KOMVO_EMAIL,
-            subject: adminEmail.subject,
-            htmlContent: adminEmail.htmlContent,
-          }),
-        }).catch((error) => {
-          console.error('[register] admin email failed', error);
-        });
-
-        const partnerEmail = buildRegisterPartnerEmail(logoUrl);
-        void fetch(MAIL_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipientEmail: data.email,
-            subject: partnerEmail.subject,
-            htmlContent: partnerEmail.htmlContent,
-          }),
-        }).catch((error) => {
-          console.error('[register] partner email failed', error);
-        });
+      if (RESEND_ENDPOINT) {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          await fetch(RESEND_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              templateKey: 'nuevo_registro_partner',
+              to: data.email,
+              extra: { ...data },
+            }),
+          });
+        }
       }
       setShowSuccess(true);
     } catch (error) {

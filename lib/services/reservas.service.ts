@@ -31,7 +31,11 @@ export type ReservasCursor =
       aceptadoNoPagado?: DocumentSnapshot | null;
       cambioRechazado?: DocumentSnapshot | null;
       estadoOrder?: { estado: string; id: string };
+      multi?: Record<string, DocumentSnapshot | null>;
     };
+
+export type ReservasMultiCursor = { multi: Record<string, DocumentSnapshot | null> };
+export type ReservasRangeCursor = DocumentSnapshot | ReservasMultiCursor;
 
 
 const getOrderBy = (sortBy: ReservasSort): { field: string | FieldPath; direction: OrderByDirection } => {
@@ -51,6 +55,50 @@ export type ReservasPageResult = {
 };
 
 export class ReservasService {
+  private static isDocSnapshot(value: unknown): value is DocumentSnapshot {
+    return Boolean(
+      value &&
+        typeof value === 'object' &&
+        'id' in (value as Record<string, unknown>) &&
+        'ref' in (value as Record<string, unknown>)
+    );
+  }
+  private static chunkArray<T>(items: T[], chunkSize: number): T[][] {
+    if (chunkSize <= 0) return [items];
+    const result: T[][] = [];
+    for (let i = 0; i < items.length; i += chunkSize) {
+      result.push(items.slice(i, i + chunkSize));
+    }
+    return result;
+  }
+
+  private static compareReservaItems(
+    a: ReservaItem,
+    b: ReservaItem,
+    order: { field: string | FieldPath; direction: OrderByDirection }
+  ) {
+    const direction = order.direction === 'asc' ? 1 : -1;
+    if (order.field instanceof FieldPath) {
+      const aName = a.restaurante?.['Nombre del restaurante'] ?? '';
+      const bName = b.restaurante?.['Nombre del restaurante'] ?? '';
+      const cmp = aName.localeCompare(bName, 'es-ES');
+      if (cmp !== 0) return cmp * direction;
+      return a.id.localeCompare(b.id, 'es-ES');
+    }
+    if (order.field === 'estado') {
+      const aEstado = a.estado ?? '';
+      const bEstado = b.estado ?? '';
+      const cmp = aEstado.localeCompare(bEstado, 'es-ES');
+      if (cmp !== 0) return cmp * direction;
+      return a.id.localeCompare(b.id, 'es-ES');
+    }
+    const aDate = new Date(a.kombo?.Fecha ?? '');
+    const bDate = new Date(b.kombo?.Fecha ?? '');
+    const cmp = aDate.getTime() - bDate.getTime();
+    if (cmp !== 0) return cmp * direction;
+    return a.id.localeCompare(b.id, 'es-ES');
+  }
+
   static async getById(reservaId: string): Promise<ReservaItem | null> {
     if (!reservaId) return null;
     const ref = doc(db, 'reservas', reservaId);
@@ -230,9 +278,85 @@ export class ReservasService {
     const baseConstraints = [where('partnerId', '==', partnerId)];
 
     if (filter === 'requiereAccion') {
-      baseConstraints.push(
-        where('estado', 'in', ['pendiente', 'pendienteCambio', 'pendientecambio', 'no_gestionado', 'expirado'])
-      );
+      const estados = ['pendiente', 'pendienteCambio', 'pendientecambio', 'no_gestionado', 'expirado'];
+      const restDisjunctions = ids.length > 1 ? ids.length : 1;
+      const respDisjunctions = respIds.length > 1 ? respIds.length : 1;
+      const disjunctions = estados.length * restDisjunctions * respDisjunctions;
+      // Avoid Firestore disjunction limit (max 30) by splitting estado into separate queries when needed.
+      if (disjunctions > 30) {
+        const restChunkSize =
+          ids.length > 1 ? Math.max(1, Math.min(ids.length, Math.floor(30 / respDisjunctions))) : ids.length;
+        const restChunks = ids.length > 1 ? this.chunkArray(ids, restChunkSize) : [ids];
+
+        const cursorMap: Record<string, DocumentSnapshot | null> =
+          cursor && typeof cursor === 'object' && 'multi' in cursor && cursor.multi ? cursor.multi : {};
+
+        const buildRestauranteConstraintForChunk = (allIds: string[]) => {
+          if (!allIds || allIds.length === 0) return [];
+          if (allIds.length === 1) return [where('restaurante.id', '==', allIds[0])];
+          return [where('restaurante.id', 'in', allIds)];
+        };
+        const buildResponsableConstraintForChunk = (allIds: string[]) => {
+          if (!allIds || allIds.length === 0) return [];
+          if (allIds.length === 1) return [where('responsableEquipo.id', '==', allIds[0])];
+          return [where('responsableEquipo.id', 'in', allIds)];
+        };
+
+        const queries = estados.flatMap((estado) =>
+          restChunks.map((chunk) => {
+            const key = `${estado}|${chunk.join(',') || 'all'}`;
+            const start = cursorMap[key] ? [startAfter(cursorMap[key] as DocumentSnapshot)] : [];
+            const q = query(
+              ref,
+              ...baseConstraints,
+              ...buildRestauranteConstraintForChunk(chunk),
+              ...buildResponsableConstraintForChunk(respIds),
+              where('estado', '==', estado),
+              orderBy(order.field, order.direction),
+              tieBreaker,
+              ...start,
+              limit(pageSize)
+            );
+            return { key, q };
+          })
+        );
+
+        const snapshots = await Promise.all(queries.map(({ q }) => getDocs(q)));
+        const candidates = snapshots.flatMap((snapshot, idx) => {
+          const key = queries[idx]?.key ?? '';
+          return snapshot.docs.map((docSnap) => {
+            const parsed = ReservaDocSchema.parse(docSnap.data());
+            return { key, snap: docSnap, item: { id: docSnap.id, ...parsed } as ReservaItem };
+          });
+        });
+
+        const unique = new Map<string, { key: string; snap: DocumentSnapshot; item: ReservaItem }>();
+        candidates.forEach((c) => {
+          if (!unique.has(c.item.id)) unique.set(c.item.id, c);
+        });
+        const sorted = Array.from(unique.values())
+          .sort((a, b) => this.compareReservaItems(a.item, b.item, order))
+          .slice(0, pageSize);
+
+        const usedCountByKey = new Map<string, number>();
+        sorted.forEach(({ key, snap }) => {
+          usedCountByKey.set(key, (usedCountByKey.get(key) ?? 0) + 1);
+          cursorMap[key] = snap;
+        });
+
+        const hasMore = snapshots.some((snap, idx) => {
+          const key = queries[idx]?.key ?? '';
+          const used = usedCountByKey.get(key) ?? 0;
+          return snap.docs.length > used || snap.docs.length >= pageSize;
+        });
+
+        return {
+          items: sorted.map((c) => c.item),
+          cursor: { multi: cursorMap },
+          hasMore,
+        };
+      }
+      baseConstraints.push(where('estado', 'in', estados));
     }
 
     if (filter === 'confirmadas') {
@@ -401,8 +525,8 @@ export class ReservasService {
     fechaDesde: string;
     fechaHasta: string;
     pageSize?: number;
-    cursor?: DocumentSnapshot | null;
-  }): Promise<{ items: ReservaItem[]; cursor: DocumentSnapshot | null; hasMore: boolean }> {
+    cursor?: ReservasRangeCursor | null;
+  }): Promise<{ items: ReservaItem[]; cursor: ReservasRangeCursor | null; hasMore: boolean }> {
     const {
       partnerId,
       filters,
@@ -438,14 +562,12 @@ export class ReservasService {
     };
 
     const activeFilter = filters?.[0];
-    if (activeFilter === 'pendientes') {
-      baseConstraints.push(where('estado', 'in', ['pendienteGestion', 'cambioRechazado']));
-    }
-    if (activeFilter === 'requiereAccion') {
-      baseConstraints.push(
-        where('estado', 'in', ['pendiente', 'pendienteCambio', 'pendientecambio', 'no_gestionado', 'expirado'])
-      );
-    }
+    const filterEstados =
+      activeFilter === 'pendientes'
+        ? ['pendienteGestion', 'cambioRechazado']
+        : activeFilter === 'requiereAccion'
+          ? ['pendiente', 'pendienteCambio', 'pendientecambio', 'no_gestionado', 'expirado']
+          : null;
     if (activeFilter === 'confirmadas') {
       baseConstraints.push(where('estado', '==', 'aceptado'));
     }
@@ -461,13 +583,88 @@ export class ReservasService {
       direction: (sortBy === 'fecha_asc' ? 'asc' : 'desc') as OrderByDirection,
     };
 
+    if (filterEstados) {
+      const restDisjunctions = restauranteIds.length > 1 ? restauranteIds.length : 1;
+      const respDisjunctions = respIds.length > 1 ? respIds.length : 1;
+      const disjunctions = filterEstados.length * restDisjunctions * respDisjunctions;
+
+      // Avoid Firestore disjunction limit (max 30) by splitting estado into separate queries when needed.
+      if (disjunctions > 30) {
+        const restChunkSize =
+          restauranteIds.length > 1
+            ? Math.max(1, Math.min(restauranteIds.length, Math.floor(30 / respDisjunctions)))
+            : restauranteIds.length;
+        const restChunks = restauranteIds.length > 1 ? this.chunkArray(restauranteIds, restChunkSize) : [restauranteIds];
+
+        const cursorMap: Record<string, DocumentSnapshot | null> =
+          cursor && typeof cursor === 'object' && cursor && 'multi' in cursor && (cursor as ReservasMultiCursor).multi
+            ? (cursor as ReservasMultiCursor).multi
+            : {};
+
+        const queries = filterEstados.flatMap((estado) =>
+          restChunks.map((chunk) => {
+            const key = `${estado}|${chunk.join(',') || 'all'}`;
+            const start = cursorMap[key] ? [startAfter(cursorMap[key] as DocumentSnapshot)] : [];
+            const q = query(
+              ref,
+              ...baseConstraints,
+              ...buildRestauranteConstraint(chunk),
+              ...buildResponsableConstraint(respIds),
+              where('estado', '==', estado),
+              orderBy(order.field, order.direction),
+              ...start,
+              limit(pageSize)
+            );
+            return { key, q };
+          })
+        );
+
+        const snapshots = await Promise.all(queries.map(({ q }) => getDocs(q)));
+        const candidates = snapshots.flatMap((snapshot, idx) => {
+          const key = queries[idx]?.key ?? '';
+          return snapshot.docs.map((docSnap) => {
+            const parsed = ReservaDocSchema.parse(docSnap.data());
+            return { key, snap: docSnap, item: { id: docSnap.id, ...parsed } as ReservaItem };
+          });
+        });
+
+        const unique = new Map<string, { key: string; snap: DocumentSnapshot; item: ReservaItem }>();
+        candidates.forEach((c) => {
+          if (!unique.has(c.item.id)) unique.set(c.item.id, c);
+        });
+        const sorted = Array.from(unique.values())
+          .sort((a, b) => this.compareReservaItems(a.item, b.item, order))
+          .slice(0, pageSize);
+
+        const usedCountByKey = new Map<string, number>();
+        sorted.forEach(({ key, snap }) => {
+          usedCountByKey.set(key, (usedCountByKey.get(key) ?? 0) + 1);
+          cursorMap[key] = snap;
+        });
+
+        const hasMore = snapshots.some((snap, idx) => {
+          const key = queries[idx]?.key ?? '';
+          const used = usedCountByKey.get(key) ?? 0;
+          return snap.docs.length > used || snap.docs.length >= pageSize;
+        });
+
+        return {
+          items: sorted.map((c) => c.item),
+          cursor: { multi: cursorMap },
+          hasMore,
+        };
+      }
+
+      baseConstraints.push(where('estado', 'in', filterEstados));
+    }
+
     const q = query(
       ref,
       ...baseConstraints,
       ...buildRestauranteConstraint(restauranteIds),
       ...buildResponsableConstraint(respIds),
       orderBy(order.field, order.direction),
-      ...(cursor ? [startAfter(cursor)] : []),
+      ...(this.isDocSnapshot(cursor) ? [startAfter(cursor)] : []),
       limit(pageSize)
     );
 

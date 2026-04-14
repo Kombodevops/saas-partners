@@ -8,6 +8,7 @@ export const SalaSchema = z.object({
   permiteReservaSinCompraAnticipada: z.boolean(),
   precioPrivatizacion: z.coerce.number().min(0),
   caracteristicas: z.record(z.string(), z.string()).optional().catch({}),
+  imagenes: z.array(z.string()).optional().catch([]),
 });
 
 export const RestauranteSalasSchema = z.object({

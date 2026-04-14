@@ -106,6 +106,7 @@ export default function RestauranteDetallePage({ params }: RestauranteDetallePag
         aforoMaximo: Number(sala.aforoMaximo ?? 0),
         precioPrivatizacion: Number(sala.precioPrivatizacion ?? 0),
         caracteristicas: sala.caracteristicas ?? {},
+        imagenes: sala.imagenes ?? [],
       })),
     [data?.salas]
   );
@@ -590,6 +591,7 @@ export default function RestauranteDetallePage({ params }: RestauranteDetallePag
             restauranteId={id}
             salas={normalizedSalas}
             restauranteCaracteristicas={data.caracteristicas}
+            restauranteImagenes={data['Imagenes del restaurante'] ?? []}
             onUpdated={(next) =>
               setData((prev) =>
                 prev
@@ -601,6 +603,7 @@ export default function RestauranteDetallePage({ params }: RestauranteDetallePag
                         aforoMaximo: Number(sala.aforoMaximo ?? 0),
                         precioPrivatizacion: Number(sala.precioPrivatizacion ?? 0),
                         caracteristicas: sala.caracteristicas ?? {},
+                        imagenes: sala.imagenes ?? [],
                       })),
                     }
                   : prev

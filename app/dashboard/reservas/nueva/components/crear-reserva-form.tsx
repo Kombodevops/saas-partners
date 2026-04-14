@@ -129,9 +129,8 @@ const filterElementsByRestaurant = (
 
 const formatInterval = (interval: Record<string, unknown>) => {
   const min = String(interval.duracionMin ?? '');
-  const max = String(interval.duracionMax ?? '');
   const precio = String(interval.precio ?? 0);
-  return `${min} - ${max} (€${precio})`;
+  return `${min} (€${precio})`;
 };
 
 const getIntervalsForRestaurante = (element: Record<string, unknown>, restauranteId: string) => {
@@ -479,6 +478,12 @@ export function CrearReservaForm() {
     }
   }, [selectedSala, form]);
 
+  useEffect(() => {
+    if (!customSalaEnabled) return;
+    const nextName = customSalaNombre.trim();
+    form.setValue('salaId', nextName, { shouldDirty: true, shouldValidate: true });
+  }, [customSalaEnabled, customSalaNombre, form]);
+
   const customSalaComplete = Boolean(
     customSalaEnabled &&
       customSalaNombre &&
@@ -492,7 +497,6 @@ export function CrearReservaForm() {
     watchRestauranteId && (customSalaEnabled ? customSalaComplete : Boolean(watchSalaId))
   );
   const selectedTicketsCount = selectedTickets.filter((ticket) => !ticket.disabled).length;
-  const hasBarraLibreTiempo = Boolean((selectedInterval as Record<string, unknown> | null)?.tiempoSolicitado);
   const horarioClosingTime = useMemo(() => {
     if (!restauranteDetalle?.horario || !watchFecha) return null;
     const parsed = new Date(watchFecha);
@@ -550,8 +554,8 @@ export function CrearReservaForm() {
       return selectedTicketsCount > 0 ? null : 'Selecciona al menos un ticket';
     }
     if (!selectedElement) return 'Selecciona un elemento';
-    if (selectedPack.Subcategoria === 'Barra Libre' && (!selectedInterval || !hasBarraLibreTiempo)) {
-      return 'Selecciona intervalo y tiempo';
+    if (selectedPack.Subcategoria === 'Barra Libre' && !selectedInterval) {
+      return 'Selecciona duración';
     }
     return null;
   })();
@@ -566,7 +570,7 @@ export function CrearReservaForm() {
     if (selectedPack.Categoria === 'Tickets') return selectedTicketsCount > 0;
     if (!selectedElement) return false;
     if (selectedPack.Subcategoria === 'Barra Libre') {
-      return Boolean(selectedInterval) && hasBarraLibreTiempo;
+      return Boolean(selectedInterval);
     }
     return true;
   }, [
@@ -580,7 +584,6 @@ export function CrearReservaForm() {
     selectedTicketsCount,
     selectedElement,
     selectedInterval,
-    hasBarraLibreTiempo,
   ]);
 
   const questionsInvalid = useMemo(() => {
@@ -1052,6 +1055,14 @@ export function CrearReservaForm() {
                 salas={salas}
                 restauranteId={watchRestauranteId}
                 salaId={watchSalaId}
+                salaFallback={
+                  customSalaEnabled
+                    ? {
+                        aforoMinimo: typeof customSalaAforoMin === 'number' ? customSalaAforoMin : undefined,
+                        aforoMaximo: typeof customSalaAforoMax === 'number' ? customSalaAforoMax : undefined,
+                      }
+                    : undefined
+                }
                 disableSalaSelect={customSalaEnabled}
                 onRestauranteChange={(value) => {
                   form.setValue('restauranteId', value);

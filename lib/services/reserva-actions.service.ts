@@ -1,9 +1,7 @@
 import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { buildReservaEstadoEmail } from '@/lib/emails/reservas';
+import { auth, db } from '@/lib/firebase';
 
-const MAIL_ENDPOINT = process.env.NEXT_PUBLIC_SEND_MAIL_URL ?? '';
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? '';
+const RESEND_ENDPOINT = process.env.NEXT_PUBLIC_SEND_RESEND_EMAIL ?? '';
 
 type QuestionPayload = {
   question: string;
@@ -37,52 +35,33 @@ export class ReservaActionsService {
     return snap.data() as Record<string, unknown>;
   };
 
-  private static buildManageUrl(reservaId: string) {
-    return `${WEB_URL}/plan/${reservaId}/gestionar`;
-  }
-
-  private static async sendReservaEstadoEmail(params: {
-    reservaId: string;
-    accepted: boolean;
-    motivo?: string;
-  }) {
-    if (!MAIL_ENDPOINT || !WEB_URL) return;
-    const data = await this.getReservaSnapshot(params.reservaId);
-    if (!data) return;
-    const usuario = (data.usuario as Record<string, unknown> | undefined) ?? {};
-    const email = this.getString(usuario.Email ?? usuario.email);
-    if (!email) return;
-    const restaurante = (data.restaurante as Record<string, unknown> | undefined) ?? {};
-    const sala = (data.sala as Record<string, unknown> | undefined) ?? {};
-    const kombo = (data.kombo as Record<string, unknown> | undefined) ?? {};
-    const pack = (data.pack as Record<string, unknown> | undefined) ?? {};
-    const manageUrl = this.buildManageUrl(params.reservaId);
-    const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
-    const { subject, htmlContent } = buildReservaEstadoEmail({
-      accepted: params.accepted,
-      manageUrl,
-      motivo: params.motivo,
-      logoUrl,
-      data: {
-        restauranteNombre: this.getString(restaurante['Nombre del restaurante']),
-        salaNombre: this.getString(sala.nombre),
-        planNombre: this.getString(pack['Nombre del pack']),
-        fecha: this.getString(kombo.Fecha),
-        horaInicio: this.getString(kombo.Hora),
-        horaFin: this.getString(kombo.horaFin),
-      },
-    });
-    void fetch(MAIL_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipientEmail: email,
-        subject,
-        htmlContent,
-      }),
-    }).catch((error) => {
-      console.error('[sendReservaEstadoEmail] failed', error);
-    });
+  private static async enviarEmailReserva(reservaId: string, templateKey: string) {
+    if (!RESEND_ENDPOINT) return;
+    try {
+      const data = await this.getReservaSnapshot(reservaId);
+      const usuario = (data?.usuario as Record<string, unknown> | undefined) ?? {};
+      const isApp = Boolean(usuario?.isApp);
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      const res = await fetch(RESEND_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          data: {
+            reservaId,
+            templateKey,
+            isApp,
+          },
+        }),
+      });
+      const json = await res.json();
+      console.log(json);
+    } catch (error) {
+      console.error('[enviarEmailReserva] failed', error);
+    }
   }
 
   static async aceptarReserva({
@@ -117,7 +96,7 @@ export class ReservaActionsService {
       payload.questions = questions;
     }
     await updateDoc(ref, payload);
-    void this.sendReservaEstadoEmail({ reservaId, accepted: true });
+    void this.enviarEmailReserva(reservaId, 'cliente_pendiente_confirmacion_24h');
   }
 
   static async rechazarReserva({ reservaId, motivo }: RechazarReservaPayload) {
@@ -128,6 +107,6 @@ export class ReservaActionsService {
       motivo,
       fechaActualizacion: serverTimestamp(),
     });
-    void this.sendReservaEstadoEmail({ reservaId, accepted: false, motivo });
+    void this.enviarEmailReserva(reservaId, 'cliente_solicitud_rechazada');
   }
 }

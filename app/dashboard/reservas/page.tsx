@@ -27,6 +27,7 @@ import {
   type ReservaFilterId,
   type ReservaItem,
   type ReservasCursor,
+  type ReservasRangeCursor,
 } from '@/lib/services/reservas.service';
 import { ChatsService, type ChatItem } from '@/lib/services/chats.service';
 import { ReservasAnalyticsService } from '@/lib/services/reservas-analytics.service';
@@ -395,7 +396,7 @@ export default function ReservasDashboardPage() {
     expiradas: 0,
   });
   const [calendarItems, setCalendarItems] = useState<ReservaItem[]>([]);
-  const [calendarCursor, setCalendarCursor] = useState<DocumentSnapshot | null>(null);
+  const [calendarCursor, setCalendarCursor] = useState<ReservasRangeCursor | null>(null);
   const [calendarHasMore, setCalendarHasMore] = useState(true);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [changeActionById, setChangeActionById] = useState<Record<string, 'accept' | 'reject' | null>>({});
@@ -404,6 +405,8 @@ export default function ReservasDashboardPage() {
   const [expiredConfirmAction, setExpiredConfirmAction] = useState<'confirm' | 'cancel' | null>(null);
   const [expiredConfirmReservaId, setExpiredConfirmReservaId] = useState<string | null>(null);
   const [changeDialogReserva, setChangeDialogReserva] = useState<ReservaItem | null>(null);
+  const [changeRejectOpen, setChangeRejectOpen] = useState(false);
+  const [changeRejectReservaId, setChangeRejectReservaId] = useState<string | null>(null);
   const [changeFechaLimite, setChangeFechaLimite] = useState('');
   const [changeFechaError, setChangeFechaError] = useState<string | null>(null);
   const [emailFailDialog, setEmailFailDialog] = useState(false);
@@ -440,7 +443,7 @@ export default function ReservasDashboardPage() {
       string,
       {
         items: ReservaItem[];
-        cursor: DocumentSnapshot | null;
+        cursor: ReservasRangeCursor | null;
         hasMore: boolean;
         ts: number;
       }
@@ -844,6 +847,11 @@ export default function ReservasDashboardPage() {
     const reservaId = changeDialogReserva.id;
     setChangeDialogReserva(null);
     await handleChangeRequestAction(reservaId, 'accept', changeFechaLimite);
+  };
+
+  const openRejectChangeDialog = (reservaId: string) => {
+    setChangeRejectReservaId(reservaId);
+    setChangeRejectOpen(true);
   };
 
   const handleExpiredAction = async (reservaId: string, action: 'confirm' | 'cancel') => {
@@ -1547,7 +1555,9 @@ export default function ReservasDashboardPage() {
               <div
                 role="button"
                 tabIndex={0}
-                className="relative flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 cursor-pointer"
+                className={`relative flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs text-slate-600 cursor-pointer ${
+                  restauranteFiltro.length ? 'border-[#7472fd] bg-[#7472fd]/5' : 'border-slate-200 bg-white'
+                }`}
                 onClick={() => {
                   setRestauranteDraft(restauranteFiltro);
                   setShowRestauranteDropdown((prev) => !prev);
@@ -1621,7 +1631,9 @@ export default function ReservasDashboardPage() {
               <div
                 role="button"
                 tabIndex={0}
-                className="relative flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 cursor-pointer"
+                className={`relative flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs text-slate-600 cursor-pointer ${
+                  responsableFiltro.length ? 'border-[#7472fd] bg-[#7472fd]/5' : 'border-slate-200 bg-white'
+                }`}
                 onClick={() => {
                   setResponsableDraft(responsableFiltro);
                   setShowResponsableDropdown((prev) => !prev);
@@ -1783,6 +1795,30 @@ export default function ReservasDashboardPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={changeRejectOpen} onOpenChange={setChangeRejectOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Rechazar cambio</AlertDialogTitle>
+              <AlertDialogDescription>
+                Se rechazará la solicitud de cambio y se notificará al cliente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Volver</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (!changeRejectReservaId) return;
+                  await handleChangeRequestAction(changeRejectReservaId, 'reject');
+                  setChangeRejectOpen(false);
+                  setChangeRejectReservaId(null);
+                }}
+              >
+                Rechazar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <AlertDialog open={expiredConfirmOpen} onOpenChange={setExpiredConfirmOpen}>
           <AlertDialogContent>
@@ -2295,7 +2331,7 @@ export default function ReservasDashboardPage() {
                               size="sm"
                               className="h-7 px-2 text-xs bg-rose-500 text-white hover:bg-rose-500"
                               disabled={Boolean(changeActionById[reserva.id])}
-                              onClick={() => handleChangeRequestAction(reserva.id, 'reject')}
+                              onClick={() => openRejectChangeDialog(reserva.id)}
                             >
                               {changeActionById[reserva.id] === 'reject' ? 'Rechazando...' : 'Rechazar'}
                             </Button>
@@ -2735,7 +2771,7 @@ export default function ReservasDashboardPage() {
                                 size="sm"
                                 className="h-7 px-2 text-xs bg-rose-500 text-white hover:bg-rose-500"
                                 disabled={Boolean(changeActionById[reserva.id])}
-                                onClick={() => handleChangeRequestAction(reserva.id, 'reject')}
+                                onClick={() => openRejectChangeDialog(reserva.id)}
                               >
                                 {changeActionById[reserva.id] === 'reject' ? 'Rechazando...' : 'Rechazar'}
                               </Button>

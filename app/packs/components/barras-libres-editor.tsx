@@ -46,6 +46,9 @@ export function BarrasLibresEditor({
   const [confirmImportAllOpen, setConfirmImportAllOpen] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [successText, setSuccessText] = useState('');
+  const [removeNotice, setRemoveNotice] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [showSaveError, setShowSaveError] = useState(false);
   const importRef = useRef<HTMLDivElement | null>(null);
   const [isImportVisible, setIsImportVisible] = useState(false);
   const visible = useMemo(() => barras, [barras]);
@@ -77,19 +80,71 @@ export function BarrasLibresEditor({
       skipResetRef.current = false;
       return;
     }
-    const safeBarras = (barras ?? []).map((barra) => ({
-      Nombre: barra.Nombre ?? '',
-      Descripción: barra['Descripción'] ?? '',
-      restaurantesIds: barra.restaurantesIds ?? [],
-      disponibilidadPorRestaurante: barra.disponibilidadPorRestaurante ?? [],
-      intervalos: (barra.intervalos ?? []).map((intervalo) => ({
-        duracionMin: intervalo.duracionMin ?? '',
-        duracionMax: intervalo.duracionMax ?? '',
-        precio: Number(intervalo.precio ?? 0),
-      })),
-    }));
+    setRemoveNotice(null);
+    setShowSaveError(false);
+    const safeBarras = (barras ?? []).map((barra) => {
+      const intervalos = (barra.intervalos ?? []).map((intervalo) => ({
+        duracionMin: String((intervalo as Record<string, unknown>).duracionMin ?? ''),
+        precio: Number((intervalo as Record<string, unknown>).precio ?? 0),
+      }));
+      return {
+        Nombre: barra.Nombre ?? '',
+        Descripción: barra['Descripción'] ?? '',
+        restaurantesIds: barra.restaurantesIds ?? [],
+        disponibilidadPorRestaurante: barra.disponibilidadPorRestaurante ?? [],
+        intervalos: intervalos.length > 0 ? intervalos : [{ duracionMin: '', precio: 0 }],
+      };
+    });
     form.reset({ barras: safeBarras });
   }, [form, barras, open]);
+
+  const showSaveErrorMessage = (message: string) => {
+    setSaveError(message);
+    setShowSaveError(true);
+    window.setTimeout(() => setShowSaveError(false), 3500);
+  };
+
+  const handleInvalidSubmit = (errors: Record<string, unknown>) => {
+    const extractMessage = (value: unknown): string | null => {
+      if (!value) return null;
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        if (typeof record.message === 'string') return record.message;
+        if (record.root) {
+          const rootMessage = extractMessage(record.root);
+          if (rootMessage) return rootMessage;
+        }
+        if (Array.isArray(record._errors) && typeof record._errors[0] === 'string') {
+          return record._errors[0];
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const msg = extractMessage(item);
+            if (msg) return msg;
+          }
+          return null;
+        }
+        for (const key of Object.keys(record)) {
+          const msg = extractMessage(record[key]);
+          if (msg) return msg;
+        }
+      }
+      return null;
+    };
+
+    const barrasErrors = (errors as { barras?: unknown }).barras;
+    if (Array.isArray(barrasErrors)) {
+      const idx = barrasErrors.findIndex(Boolean);
+      if (idx >= 0) {
+        setFocusedBarraIndex(idx);
+        setIsAddingSingle(false);
+      }
+    }
+
+    const message = extractMessage(errors);
+    showSaveErrorMessage(message || 'Revisa los campos obligatorios.');
+  };
 
   useEffect(() => {
     if (!restauranteId || !importRef.current) return;
@@ -106,29 +161,31 @@ export function BarrasLibresEditor({
     append({
       Nombre: '',
       Descripción: '',
-      intervalos: [],
+      intervalos: [{ duracionMin: '', precio: 0 }],
       restaurantesIds: [],
       disponibilidadPorRestaurante: [],
     });
   };
 
   const openAddSingleBarra = () => {
-    const safeBarras = (barras ?? []).map((barra) => ({
-      Nombre: barra.Nombre ?? '',
-      Descripción: barra['Descripción'] ?? '',
-      restaurantesIds: barra.restaurantesIds ?? [],
-      disponibilidadPorRestaurante: barra.disponibilidadPorRestaurante ?? [],
-      intervalos: (barra.intervalos ?? []).map((intervalo) => ({
-        duracionMin: intervalo.duracionMin ?? '',
-        duracionMax: intervalo.duracionMax ?? '',
-        precio: Number(intervalo.precio ?? 0),
-      })),
-    }));
+    const safeBarras = (barras ?? []).map((barra) => {
+      const intervalos = (barra.intervalos ?? []).map((intervalo) => ({
+        duracionMin: String((intervalo as Record<string, unknown>).duracionMin ?? ''),
+        precio: Number((intervalo as Record<string, unknown>).precio ?? 0),
+      }));
+      return {
+        Nombre: barra.Nombre ?? '',
+        Descripción: barra['Descripción'] ?? '',
+        restaurantesIds: barra.restaurantesIds ?? [],
+        disponibilidadPorRestaurante: barra.disponibilidadPorRestaurante ?? [],
+        intervalos: intervalos.length > 0 ? intervalos : [{ duracionMin: '', precio: 0 }],
+      };
+    });
     const nextIndex = safeBarras.length;
     const newBarra = {
       Nombre: '',
       Descripción: '',
-      intervalos: [],
+      intervalos: [{ duracionMin: '', precio: 0 }],
       restaurantesIds: [],
       disponibilidadPorRestaurante: [],
     };
@@ -140,23 +197,10 @@ export function BarrasLibresEditor({
   };
 
   const removeBarra = (index: number) => {
+    const nombre = String(form.getValues(`barras.${index}.Nombre` as const) ?? '').trim();
+    const label = nombre || `Barra libre ${index + 1}`;
+    setRemoveNotice(`Se eliminará ${label} al guardar.`);
     remove(index);
-  };
-
-  const addIntervalo = (index: number) => {
-    const current = form.getValues('barras');
-    const target = current?.[index];
-    if (!target) return;
-    const intervalos = [...(target.intervalos ?? []), { duracionMin: '', duracionMax: '', precio: 0 }];
-    update(index, { ...target, intervalos });
-  };
-
-  const removeIntervalo = (index: number, intervalIndex: number) => {
-    const current = form.getValues('barras');
-    const target = current?.[index];
-    if (!target) return;
-    const intervalos = (target.intervalos ?? []).filter((_, idx) => idx !== intervalIndex);
-    update(index, { ...target, intervalos });
   };
 
   const ensureImportBarra = (barra: BarraLibreEditForm) => {
@@ -205,6 +249,8 @@ export function BarrasLibresEditor({
         setSuccessText(label);
         setSuccessDialogOpen(true);
       }
+    } catch (err) {
+      showSaveErrorMessage(err instanceof Error ? err.message : 'No se pudieron guardar las barras libres.');
     } finally {
       setIsSaving(false);
     }
@@ -272,22 +318,22 @@ export function BarrasLibresEditor({
                               </p>
                             </div>
                             <div className="rounded-lg border border-white bg-white px-2 py-1">
-                              <p className="text-[11px] font-semibold text-slate-700">Intervalos</p>
+                              <p className="text-[11px] font-semibold text-slate-700">Duración</p>
                               {(barra.intervalos ?? []).length > 0 ? (
                                 <ul className="mt-1 space-y-1 text-[11px] text-slate-600">
                                   {(barra.intervalos ?? []).slice(0, 3).map((intervalo, idx) => (
                                     <li key={`${barra.Nombre}-${idx}`}>
-                                      {intervalo.duracionMin} - {intervalo.duracionMax} · {intervalo.precio ?? 0}€
+                                      {intervalo.duracionMin} · {intervalo.precio ?? 0}€
                                     </li>
                                   ))}
                                   {(barra.intervalos ?? []).length > 3 && (
                                     <li className="text-[11px] text-slate-400">
-                                      +{(barra.intervalos ?? []).length - 3} intervalos más
+                                      +{(barra.intervalos ?? []).length - 3} duraciones más
                                     </li>
                                   )}
                                 </ul>
                               ) : (
-                                <p className="text-[11px] text-slate-400">Sin intervalos.</p>
+                                <p className="text-[11px] text-slate-400">Sin duración.</p>
                               )}
                             </div>
                           </div>
@@ -409,22 +455,22 @@ export function BarrasLibresEditor({
                               </p>
                             </div>
                             <div className="rounded-lg border border-white bg-white px-2 py-1">
-                              <p className="text-[11px] font-semibold text-slate-700">Intervalos</p>
+                              <p className="text-[11px] font-semibold text-slate-700">Duración</p>
                               {(barra.intervalos ?? []).length > 0 ? (
                                 <ul className="mt-1 space-y-1 text-[11px] text-slate-600">
                                   {(barra.intervalos ?? []).slice(0, 3).map((intervalo, idx) => (
                                     <li key={`${barra.Nombre}-${idx}`}>
-                                      {intervalo.duracionMin} - {intervalo.duracionMax} · {intervalo.precio ?? 0}€
+                                      {intervalo.duracionMin} · {intervalo.precio ?? 0}€
                                     </li>
                                   ))}
                                   {(barra.intervalos ?? []).length > 3 && (
                                     <li className="text-[11px] text-slate-400">
-                                      +{(barra.intervalos ?? []).length - 3} intervalos más
+                                      +{(barra.intervalos ?? []).length - 3} duraciones más
                                     </li>
                                   )}
                                 </ul>
                               ) : (
-                                <p className="text-[11px] text-slate-400">Sin intervalos.</p>
+                                <p className="text-[11px] text-slate-400">Sin duración.</p>
                               )}
                             </div>
                           </div>
@@ -534,8 +580,18 @@ export function BarrasLibresEditor({
             <DialogHeader>
               <DialogTitle>Editar barras libres</DialogTitle>
             </DialogHeader>
+            {removeNotice && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {removeNotice}
+              </div>
+            )}
+            {showSaveError && saveError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {saveError}
+              </div>
+            )}
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-4">
                 {fields.map((field, index) => {
                   if (focusedBarraIndex != null && focusedBarraIndex !== index) return null;
                   return (
@@ -580,29 +636,38 @@ export function BarrasLibresEditor({
                         />
                       </div>
                       <div className="mt-4 space-y-3">
-                        <p className="text-sm font-semibold text-slate-900">Intervalos</p>
-                        <div className="space-y-2">
-                          {(form.watch(`barras.${index}.intervalos` as const) ?? []).map((intervalo, intervaloIndex) => (
-                            <div key={`${field.id}-intervalo-${intervaloIndex}`} className="flex flex-wrap gap-2">
+                        <p className="text-sm font-semibold text-slate-900">Duraciones</p>
+                        {(form.watch(`barras.${index}.intervalos` as const) ?? []).map((_, intervaloIndex) => (
+                          <div
+                            key={`barra-${index}-intervalo-${intervaloIndex}`}
+                            className="rounded-xl border border-slate-100 bg-slate-50 p-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold text-slate-700">Duración {intervaloIndex + 1}</p>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-8 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                onClick={() => {
+                                  const current = form.getValues(`barras.${index}.intervalos` as const) ?? [];
+                                  const next = current.filter((_, idx) => idx !== intervaloIndex);
+                                  form.setValue(
+                                    `barras.${index}.intervalos` as const,
+                                    next.length > 0 ? next : [{ duracionMin: '', precio: 0 }],
+                                    { shouldDirty: true, shouldValidate: true }
+                                  );
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
                               <FormField
                                 control={form.control}
                                 name={`barras.${index}.intervalos.${intervaloIndex}.duracionMin` as const}
                                 render={({ field }) => (
-                                  <FormItem className="flex-1">
-                                    <FormLabel>Duración mínima</FormLabel>
-                                    <FormControl>
-                                      <Input {...field} value={field.value ?? ''} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`barras.${index}.intervalos.${intervaloIndex}.duracionMax` as const}
-                                render={({ field }) => (
-                                  <FormItem className="flex-1">
-                                    <FormLabel>Duración máxima</FormLabel>
+                                  <FormItem>
+                                    <FormLabel>Duración</FormLabel>
                                     <FormControl>
                                       <Input {...field} value={field.value ?? ''} />
                                     </FormControl>
@@ -614,7 +679,7 @@ export function BarrasLibresEditor({
                                 control={form.control}
                                 name={`barras.${index}.intervalos.${intervaloIndex}.precio` as const}
                                 render={({ field }) => (
-                                  <FormItem className="flex-1">
+                                  <FormItem>
                                     <FormLabel>Precio</FormLabel>
                                     <FormControl>
                                       <NumberInput
@@ -627,21 +692,26 @@ export function BarrasLibresEditor({
                                   </FormItem>
                                 )}
                               />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="mt-6 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                                onClick={() => removeIntervalo(index, intervaloIndex)}
-                              >
-                                <Trash2 className="h-4 w-4 text-rose-600" />
-                              </Button>
                             </div>
-                          ))}
-                          <Button type="button" variant="outline" onClick={() => addIntervalo(index)} className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Añadir intervalo
-                          </Button>
-                        </div>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="self-start"
+                          onClick={() => {
+                            const current = form.getValues(`barras.${index}.intervalos` as const) ?? [];
+                            form.setValue(
+                              `barras.${index}.intervalos` as const,
+                              [...current, { duracionMin: '', precio: 0 }],
+                              { shouldDirty: true, shouldValidate: true }
+                            );
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Añadir duración
+                        </Button>
                       </div>
                       <div className="mt-4 space-y-3">
                         <p className="text-sm font-semibold text-slate-900">Restaurantes incluidos</p>
@@ -864,7 +934,7 @@ export function BarrasLibresEditor({
                         </p>
                       </div>
                       <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1">
-                        <p className="text-[11px] font-semibold text-slate-700">Intervalos</p>
+                        <p className="text-[11px] font-semibold text-slate-700">Duración</p>
                         <div className="mt-1 space-y-1.5">
                           {(barra.intervalos ?? []).length > 0 ? (
                             <>
@@ -873,20 +943,18 @@ export function BarrasLibresEditor({
                                   key={`intervalo-${idx}`}
                                   className="flex items-center justify-between text-[11px] text-slate-600"
                                 >
-                                  <span>
-                                    {intervalo.duracionMin || '—'} - {intervalo.duracionMax || '—'}
-                                  </span>
+                                  <span>{intervalo.duracionMin || '—'}</span>
                                   <span className="font-semibold text-slate-700">{intervalo.precio ?? 0}€</span>
                                 </div>
                               ))}
                               {(barra.intervalos ?? []).length > 3 && (
                                 <p className="text-[11px] text-slate-400">
-                                  +{(barra.intervalos ?? []).length - 3} intervalos más
+                                  +{(barra.intervalos ?? []).length - 3} duraciones más
                                 </p>
                               )}
                             </>
                           ) : (
-                            <p className="text-[11px] text-slate-400">Sin intervalos.</p>
+                            <p className="text-[11px] text-slate-400">Sin duración.</p>
                           )}
                         </div>
                       </div>
@@ -962,8 +1030,18 @@ export function BarrasLibresEditor({
             <DialogHeader>
               <DialogTitle>Editar barras libres</DialogTitle>
             </DialogHeader>
+            {removeNotice && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {removeNotice}
+              </div>
+            )}
+            {showSaveError && saveError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {saveError}
+              </div>
+            )}
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-4">
                 {fields.map((field, index) => {
                   if (focusedBarraIndex != null && focusedBarraIndex !== index) return null;
                   return (
@@ -1119,32 +1197,40 @@ export function BarrasLibresEditor({
                         })}
                       </div>
                       <div className="mt-4 space-y-3">
-                        <p className="text-sm font-semibold text-slate-900">Intervalos</p>
-                        {(form.watch(`barras.${index}.intervalos` as const) ?? []).map((_, intervalIndex) => (
+                        <p className="text-sm font-semibold text-slate-900">Duraciones</p>
+                        {(form.watch(`barras.${index}.intervalos` as const) ?? []).map((_, intervaloIndex) => (
                           <div
-                            key={`intervalo-${index}-${intervalIndex}`}
+                            key={`barra-bottom-${index}-intervalo-${intervaloIndex}`}
                             className="rounded-xl border border-slate-100 p-3"
                           >
                             <div className="flex items-center justify-between">
-                              <p className="text-xs font-semibold text-slate-700">Intervalo {intervalIndex + 1}</p>
+                              <p className="text-xs font-semibold text-slate-700">Duración {intervaloIndex + 1}</p>
                               <Button
                                 type="button"
-                                variant="outline"
-                                className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                                onClick={() => removeIntervalo(index, intervalIndex)}
+                                variant="ghost"
+                                className="h-8 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                onClick={() => {
+                                  const current = form.getValues(`barras.${index}.intervalos` as const) ?? [];
+                                  const next = current.filter((_, idx) => idx !== intervaloIndex);
+                                  form.setValue(
+                                    `barras.${index}.intervalos` as const,
+                                    next.length > 0 ? next : [{ duracionMin: '', precio: 0 }],
+                                    { shouldDirty: true, shouldValidate: true }
+                                  );
+                                }}
                               >
-                                <Trash2 className="h-4 w-4 text-rose-600" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                            <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                            <div className="mt-3 grid gap-4 sm:grid-cols-2">
                               <FormField
                                 control={form.control}
-                                name={`barras.${index}.intervalos.${intervalIndex}.duracionMin` as const}
+                                name={`barras.${index}.intervalos.${intervaloIndex}.duracionMin` as const}
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Duración mínima</FormLabel>
+                                    <FormLabel>Duración</FormLabel>
                                     <FormControl>
-                                      <Input {...field} value={field.value ?? ''} placeholder="Ej: 1h" />
+                                      <Input {...field} value={field.value ?? ''} placeholder="Ej: 3h 15min" />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
@@ -1152,20 +1238,7 @@ export function BarrasLibresEditor({
                               />
                               <FormField
                                 control={form.control}
-                                name={`barras.${index}.intervalos.${intervalIndex}.duracionMax` as const}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Duración máxima</FormLabel>
-                                    <FormControl>
-                                      <Input {...field} value={field.value ?? ''} placeholder="Ej: 3h" />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`barras.${index}.intervalos.${intervalIndex}.precio` as const}
+                                name={`barras.${index}.intervalos.${intervaloIndex}.precio` as const}
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>Precio</FormLabel>
@@ -1183,8 +1256,22 @@ export function BarrasLibresEditor({
                             </div>
                           </div>
                         ))}
-                        <Button type="button" variant="outline" onClick={() => addIntervalo(index)}>
-                          Añadir intervalo
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="self-start"
+                          onClick={() => {
+                            const current = form.getValues(`barras.${index}.intervalos` as const) ?? [];
+                            form.setValue(
+                              `barras.${index}.intervalos` as const,
+                              [...current, { duracionMin: '', precio: 0 }],
+                              { shouldDirty: true, shouldValidate: true }
+                            );
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Añadir duración
                         </Button>
                       </div>
                     </div>

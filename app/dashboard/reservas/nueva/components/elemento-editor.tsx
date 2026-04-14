@@ -118,9 +118,9 @@ export function ElementoEditor({
 
               {hasInterval && (
                 <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-900">Intervalo seleccionado</p>
+                  <p className="text-sm font-semibold text-slate-900">Duración seleccionada</p>
                   <div className="mt-3">
-                    <label className="text-xs font-medium text-slate-600">Intervalo disponible</label>
+                    <label className="text-xs font-medium text-slate-600">Duración disponible</label>
                     <select
                       className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                       value={asString(intervalDraft?.duracionMin)}
@@ -131,31 +131,22 @@ export function ElementoEditor({
                         setIntervalDraft(next ? { ...next } : null);
                       }}
                     >
-                      <option value="">Selecciona un intervalo</option>
+                      <option value="">Selecciona una duración</option>
                       {intervalos.map((interval) => (
                         <option key={String(interval.duracionMin)} value={String(interval.duracionMin)}>
-                          {asString(interval.duracionMin)} - {asString(interval.duracionMax)} (€{asString(interval.precio)})
+                          {asString(interval.duracionMin)} (€{asString(interval.precio)})
                         </option>
                       ))}
                     </select>
                   </div>
                   {intervalDraft ? (
-                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
                       <div>
-                        <label className="text-xs font-medium text-slate-600">Duración mínima</label>
+                        <label className="text-xs font-medium text-slate-600">Duración</label>
                         <Input
                           value={asString(intervalDraft.duracionMin)}
                           onChange={(event) =>
                             setIntervalDraft({ ...intervalDraft, duracionMin: event.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-slate-600">Duración máxima</label>
-                        <Input
-                          value={asString(intervalDraft.duracionMax)}
-                          onChange={(event) =>
-                            setIntervalDraft({ ...intervalDraft, duracionMax: event.target.value })
                           }
                         />
                       </div>
@@ -171,12 +162,12 @@ export function ElementoEditor({
                     </div>
                   ) : (
                     <p className="mt-2 text-xs text-slate-500">
-                      Selecciona un intervalo antes de editar sus valores.
+                      Selecciona una duración antes de editar sus valores.
                     </p>
                   )}
                   {intervalos.length > 0 && (
                     <p className="mt-2 text-xs text-slate-500">
-                      Este restaurante tiene {intervalos.length} intervalo(s) disponibles.
+                      Este restaurante tiene {intervalos.length} duración(es) disponibles.
                     </p>
                   )}
                 </div>

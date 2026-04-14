@@ -12,9 +12,8 @@ type Props = {
 
 const label = (intervalo: Intervalo) => {
   const min = String(intervalo.duracionMin ?? '');
-  const max = String(intervalo.duracionMax ?? '');
   const precio = String(intervalo.precio ?? 0);
-  return `${min} - ${max} (€${precio})`;
+  return `${min} (€${precio})`;
 };
 
 const parseToMinutes = (value: string) => {
@@ -49,13 +48,11 @@ const GLOBAL_MIN = '15min';
 const GLOBAL_MAX = '24h';
 
 export function BarraLibreIntervalo({ intervalos, selected, onSelect }: Props) {
-  const tiempoSeleccionado = String((selected as Record<string, unknown> | null)?.tiempoSolicitado ?? '');
-
   return (
     <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">Intervalo de barra libre</p>
+      <p className="text-sm font-semibold text-slate-900">Duración de barra libre</p>
       <p className="mt-1 text-xs text-slate-500">
-        Selecciona el intervalo y ajusta duración y precio. Puedes editar los valores para esta reserva.
+        Selecciona la duración y ajusta el precio para esta reserva.
       </p>
       <select
         className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -70,7 +67,7 @@ export function BarraLibreIntervalo({ intervalos, selected, onSelect }: Props) {
           }
         }}
       >
-        <option value="">Selecciona un intervalo</option>
+        <option value="">Selecciona una duración</option>
         {intervalos.map((intervalo) => (
           <option key={String(intervalo.duracionMin)} value={String(intervalo.duracionMin)}>
             {label(intervalo)}
@@ -80,9 +77,9 @@ export function BarraLibreIntervalo({ intervalos, selected, onSelect }: Props) {
 
       {selected && (
         <div className="mt-4">
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <label className="text-xs font-medium text-slate-600">Duración mínima</label>
+              <label className="text-xs font-medium text-slate-600">Duración</label>
               <select
                 className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 value={String(selected.duracionMin ?? '')}
@@ -93,23 +90,6 @@ export function BarraLibreIntervalo({ intervalos, selected, onSelect }: Props) {
               >
                 {buildSteps(GLOBAL_MIN, GLOBAL_MAX).map((value) => (
                   <option key={`min-${value}`} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-slate-600">Duración máxima</label>
-              <select
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                value={String(selected.duracionMax ?? '')}
-                onChange={(event) => {
-                  const next = { ...selected, duracionMax: event.target.value } as Intervalo;
-                  onSelect(next);
-                }}
-              >
-                {buildSteps(GLOBAL_MIN, GLOBAL_MAX).map((value) => (
-                  <option key={`max-${value}`} value={value}>
                     {value}
                   </option>
                 ))}
@@ -133,25 +113,6 @@ export function BarraLibreIntervalo({ intervalos, selected, onSelect }: Props) {
             </div>
           </div>
 
-          <label className="mt-4 text-xs font-medium text-slate-600">Tiempo solicitado</label>
-          <select
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            value={tiempoSeleccionado}
-            onChange={(event) => {
-              const next = { ...selected, tiempoSolicitado: event.target.value } as Intervalo;
-              onSelect(next);
-            }}
-          >
-            <option value="">Selecciona tiempo</option>
-            {buildSteps(String(selected.duracionMin ?? ''), String(selected.duracionMax ?? '')).map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-[11px] text-slate-500">
-            Entre {String(selected.duracionMin ?? '')} y {String(selected.duracionMax ?? '')} en saltos de 15 min.
-          </p>
         </div>
       )}
     </div>

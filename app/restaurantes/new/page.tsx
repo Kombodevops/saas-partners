@@ -44,16 +44,16 @@ const initialHorarios: RestauranteNewForm['horarios'] = {
   Domingo: { cerrado: false, intervalos: [] },
 };
 
-  const stepFields: Record<StepKey, Array<keyof RestauranteNewForm>> = {
+const stepFields: Record<StepKey, Array<keyof RestauranteNewForm>> = {
   basico: ['basico'],
   ubicacion: ['ubicacion'],
   horarios: ['horarios'],
   raciones: ['raciones'],
   caracteristicas: ['caracteristicas'],
+  archivos: [],
   salas: ['salas'],
   consumiciones: ['consumiciones'],
   extras: ['extras'],
-  archivos: [],
   responsable: ['responsable'],
   resumen: [],
 };
@@ -181,6 +181,8 @@ export default function NewRestaurantPage() {
         return hasAnyHorario;
       case 'raciones':
         return true;
+      case 'archivos':
+        return imagenes.length > 0 && Boolean(logo);
       case 'salas':
         return values.salas.length > 0 && values.salas.every((sala) => sala.nombre.trim() && sala.aforoMinimo > 0 && sala.aforoMaximo > 0 && Object.keys(sala.caracteristicas).length > 0);
       case 'consumiciones':
@@ -189,8 +191,6 @@ export default function NewRestaurantPage() {
         return values.extras.length === 0 || values.extras.every((item) => item.nombre.trim() && item.descripcion.trim() && item.precio > 0);
       case 'caracteristicas':
         return Object.keys(values.caracteristicas).length > 0;
-      case 'archivos':
-        return imagenes.length > 0 && Boolean(logo);
       case 'responsable':
         return Boolean(values.responsable.nombre.trim() && values.responsable.telefono.trim());
       case 'resumen':
@@ -262,7 +262,11 @@ export default function NewRestaurantPage() {
       const basico = form.getValues('basico');
       const ubicacion = form.getValues('ubicacion');
       const raciones = form.getValues('raciones');
-      const salas = form.getValues('salas');
+      const salasWithIndices = form.getValues('salas');
+      const salas = salasWithIndices.map((sala) => ({
+        ...sala,
+        imagenes: [],
+      }));
       const consumiciones = form.getValues('consumiciones');
       const extras = form.getValues('extras');
       const caracteristicas = form.getValues('caracteristicas');
@@ -288,7 +292,7 @@ export default function NewRestaurantPage() {
         if (coords) break;
       }
 
-      const hasConsumoLibre = salas.some((sala) => sala.permiteReservaSinCompraAnticipada);
+      const hasConsumoLibre = salasWithIndices.some((sala) => sala.permiteReservaSinCompraAnticipada);
       const restauranteData = {
         idPropietario: user.uid,
         'Nombre del restaurante': basico.nombre,
@@ -345,14 +349,29 @@ export default function NewRestaurantPage() {
       const docRef = await addDoc(collection(db, 'restaurants'), restauranteData);
       const restauranteId = docRef.id;
 
+      let uploadedUrls: string[] = [];
       if (imagenes.length > 0) {
-        await RestauranteImagesService.uploadImages(restauranteId, imagenes, []);
+        uploadedUrls = await RestauranteImagesService.uploadImages(restauranteId, imagenes, []);
       }
       if (logo) {
         await RestauranteLogoService.uploadLogo(restauranteId, logo);
       }
       if (pdfs.length > 0 && pdfNames.length === pdfs.length) {
         await RestauranteCartaService.uploadPdfs(restauranteId, pdfs, pdfNames);
+      }
+
+      if (uploadedUrls.length > 0) {
+        const salasWithImages = salasWithIndices.map((sala) => {
+          const selected = sala.imagenes ?? [];
+          const mapped = selected
+            .map((key) => {
+              const idx = Number(key);
+              return Number.isFinite(idx) ? uploadedUrls[idx] : null;
+            })
+            .filter((url): url is string => Boolean(url));
+          return { ...sala, imagenes: mapped };
+        });
+        await updateDoc(doc(db, 'restaurants', restauranteId), { salas: salasWithImages });
       }
 
       const partner = await AuthService.getCurrentPartner();
@@ -398,12 +417,7 @@ export default function NewRestaurantPage() {
                 {currentKey === 'ubicacion' && <UbicacionStep />}
                 {currentKey === 'horarios' && <HorariosStep />}
                 {currentKey === 'raciones' && <RacionesStep />}
-                  {currentKey === 'caracteristicas' && <CaracteristicasStep />}
-                  {currentKey === 'salas' && <SalasStep />}
-                  {currentKey === 'consumiciones' && (
-                    <ConsumicionesStep files={consumicionesFiles} onFilesChange={setConsumicionesFiles} />
-                  )}
-                  {currentKey === 'extras' && <ExtrasStep />}
+                {currentKey === 'caracteristicas' && <CaracteristicasStep />}
                 {currentKey === 'archivos' && (
                   <ArchivosStep
                     imagenes={imagenes}
@@ -419,6 +433,11 @@ export default function NewRestaurantPage() {
                     onPdfNameChange={setPdfNames}
                   />
                 )}
+                {currentKey === 'salas' && <SalasStep imagenes={imagenes} />}
+                {currentKey === 'consumiciones' && (
+                  <ConsumicionesStep files={consumicionesFiles} onFilesChange={setConsumicionesFiles} />
+                )}
+                {currentKey === 'extras' && <ExtrasStep />}
                 {currentKey === 'responsable' && <ResponsableStep />}
                   {currentKey === 'resumen' && (
                     <ResumenStep

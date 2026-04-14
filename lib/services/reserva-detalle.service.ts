@@ -18,18 +18,15 @@ import {
   setDoc,
   deleteField,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { AuthService } from '@/lib/services/auth.service';
 import { ReservaDocSchema, type ReservaDoc } from '@/lib/validators/reserva';
 import { ChatDocSchema, ChatInboxDocSchema, type ChatDoc, type ChatInboxDoc } from '@/lib/validators/chat';
 import { RestauranteDetalleDocSchema } from '@/lib/validators/restaurante-detalle';
 import type { PackCatalogItem } from '@/lib/services/pack-catalog.service';
 import {
-  buildCambioEstadoEmail,
   buildExpiradaEstadoEmail,
-  buildFechaLimiteEmail,
   buildReservaManageEmail,
-  buildReservaUpdateEmail,
 } from '@/lib/emails/reservas';
 import {
   AsistenciaDocSchema,
@@ -53,10 +50,22 @@ export type ChatMessageDetalle = ChatMessageDoc & { id: string };
 export type NotaDetalle = NotaDoc;
 export type EtiquetaDetalle = EtiquetaDoc;
 
-const MAIL_ENDPOINT = process.env.NEXT_PUBLIC_SEND_MAIL_URL ?? '';
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? '';
+const RESEND_ENDPOINT = process.env.NEXT_PUBLIC_SEND_RESEND_EMAIL ?? '';
 
 export class ReservaDetalleService {
+  private static async getReservaSnapshot(reservaId: string) {
+    if (!reservaId) return null;
+    const snap = await getDoc(doc(db, 'reservas', reservaId));
+    if (!snap.exists()) return null;
+    return snap.data() as Record<string, unknown>;
+  }
+
+  private static getIsAppFromSnapshot(snapshot: Record<string, unknown> | null): boolean {
+    if (!snapshot) return false;
+    const usuario = snapshot.usuario as Record<string, unknown> | undefined;
+    return Boolean(usuario?.isApp);
+  }
+
   static async getReservaById(reservaId: string): Promise<ReservaDetalle | null> {
     const ref = doc(db, 'reservas', reservaId);
     const snap = await getDoc(ref);
@@ -748,10 +757,11 @@ export class ReservaDetalleService {
       clienteEmail,
     });
     if (email) {
+      const isApp = Boolean((data.usuario as { isApp?: boolean } | undefined)?.isApp);
       await this.sendCambioEstadoEmail({
         reservaId,
-        email,
         accepted: true,
+        isApp,
       });
     }
   }
@@ -780,10 +790,11 @@ export class ReservaDetalleService {
       clienteEmail,
     });
     if (email) {
+      const isApp = Boolean((data.usuario as { isApp?: boolean } | undefined)?.isApp);
       await this.sendCambioEstadoEmail({
         reservaId,
-        email,
         accepted: false,
+        isApp,
       });
     }
   }
@@ -856,19 +867,30 @@ export class ReservaDetalleService {
     return { emailSent: false, missingUser: true };
   }
 
+  static async cancelarReservaLocal(params: { reservaId: string }) {
+    const { reservaId } = params;
+    if (!reservaId) return;
+    const ref = doc(db, 'reservas', reservaId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+    const data = snap.data() as Record<string, unknown>;
+
+    await updateDoc(ref, {
+      estado: 'fallado',
+      fechaActualizacion: Timestamp.now(),
+    });
+
+    const isApp = Boolean((data.usuario as { isApp?: boolean } | undefined)?.isApp);
+    await this.sendReservaCanceladaLocalEmail({ reservaId, isApp });
+  }
+
   static async updateFechaLimitePago(params: {
     reservaId: string;
     fechaLimitePago: string;
     usuarioId?: string | null;
     usuarioEmail?: string | null;
   }) {
-    const { reservaId, fechaLimitePago, usuarioId, usuarioEmail } = params;
-    console.warn('[updateFechaLimitePago] input', {
-      reservaId,
-      fechaLimitePago,
-      usuarioId,
-      usuarioEmail,
-    });
+    const { reservaId, fechaLimitePago } = params;
     if (!reservaId || !fechaLimitePago) {
       return { emailSent: false, missingUser: true, missingEmail: true };
     }
@@ -881,53 +903,11 @@ export class ReservaDetalleService {
       fechaActualizacion: Timestamp.now(),
     });
 
-    if (!usuarioId) {
-      console.warn('[updateFechaLimitePago] missing usuarioId, trying fallback email', {
-        usuarioEmail,
-      });
-      if (usuarioEmail) {
-        return await this.sendFechaLimiteEmail({
-          reservaId,
-          fechaLimitePago,
-          email: usuarioEmail,
-        });
-      }
-      return { emailSent: false, missingUser: true, missingEmail: true };
-    }
-
-    const userDoc = await getDoc(doc(db, 'users', usuarioId));
-    if (!userDoc.exists()) {
-      console.warn('[updateFechaLimitePago] user doc not found, trying fallback email', {
-        usuarioId,
-        usuarioEmail,
-      });
-      if (usuarioEmail) {
-        return await this.sendFechaLimiteEmail({
-          reservaId,
-          fechaLimitePago,
-          email: usuarioEmail,
-        });
-      }
-      return { emailSent: false, missingUser: true, missingEmail: true };
-    }
-
-    const userData = userDoc.data() as Record<string, unknown>;
-    const email =
-      (userData.Email as string | undefined) ??
-      (userData.email as string | undefined) ??
-      usuarioEmail ??
-      '';
-
-    if (!email) {
-      console.warn('[updateFechaLimitePago] missing email after lookup', {
-        usuarioId,
-        usuarioEmail,
-        userDataKeys: Object.keys(userData),
-      });
-      return { emailSent: false, missingUser: false, missingEmail: true };
-    }
-
-    return await this.sendFechaLimiteEmail({ reservaId, fechaLimitePago, email });
+    const isApp = ReservaDetalleService.getIsAppFromSnapshot(
+      await ReservaDetalleService.getReservaSnapshot(reservaId)
+    );
+    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
   static async updateReservaRestauranteSala(params: {
@@ -989,15 +969,11 @@ export class ReservaDetalleService {
       fechaActualizacion: new Date(),
     });
 
-    return await this.sendReservaUpdateEmail({
-      reservaId,
-      subject: 'Reserva actualizada',
-      intro: 'El restaurante ha actualizado el local o el espacio de tu reserva.',
-      changes: [
-        `Nuevo restaurante: ${restaurantePayload['Nombre del restaurante'] ?? '—'}`,
-        `Nuevo espacio: ${sala?.nombre ?? '—'}`,
-      ],
-    });
+    const isApp = ReservaDetalleService.getIsAppFromSnapshot(
+      await ReservaDetalleService.getReservaSnapshot(reservaId)
+    );
+    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
   static async updateReservaPack(params: { reservaId: string; pack: PackCatalogItem; precio?: Record<string, unknown> }) {
@@ -1011,12 +987,11 @@ export class ReservaDetalleService {
     if (precio) payload.precio = precio;
     await updateDoc(ref, payload);
 
-    return await this.sendReservaUpdateEmail({
-      reservaId,
-      subject: 'Reserva actualizada',
-      intro: 'El restaurante ha actualizado el plan de tu reserva.',
-      changes: [`Nuevo plan: ${pack?.['Nombre del pack'] ?? '—'}`],
-    });
+    const isApp = ReservaDetalleService.getIsAppFromSnapshot(
+      await ReservaDetalleService.getReservaSnapshot(reservaId)
+    );
+    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
   static async updateReservaEvento(params: {
@@ -1037,16 +1012,11 @@ export class ReservaDetalleService {
     const grupo = (kombo as Record<string, unknown>)?.['Tamaño del grupo'] as Record<string, unknown> | undefined;
     const aforoMin = grupo?.min ?? '';
     const aforoMax = grupo?.max ?? '';
-    return await this.sendReservaUpdateEmail({
-      reservaId,
-      subject: 'Reserva actualizada',
-      intro: 'El restaurante ha actualizado los detalles de tu reserva.',
-      changes: [
-        `Fecha: ${fecha || '—'}`,
-        `Horario: ${hora || '—'}${horaFin ? ` - ${horaFin}` : ''}`,
-        `Aforo: ${aforoMin || '—'} - ${aforoMax || '—'}`,
-      ],
-    });
+    const isApp = ReservaDetalleService.getIsAppFromSnapshot(
+      await ReservaDetalleService.getReservaSnapshot(reservaId)
+    );
+    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
   static async updateReservaResponsable(params: {
@@ -1079,55 +1049,34 @@ export class ReservaDetalleService {
     return snap.docs.length > 0;
   }
 
-  private static async sendFechaLimiteEmail(params: {
-    reservaId: string;
-    fechaLimitePago: string;
-    email: string;
-  }) {
-    const { reservaId, fechaLimitePago, email } = params;
-    if (MAIL_ENDPOINT && WEB_URL) {
-      const manageUrl = `${WEB_URL}/plan/${reservaId}/gestionar`;
-      const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
-      const { subject, htmlContent } = buildFechaLimiteEmail({ fechaLimitePago, manageUrl, logoUrl });
-
-      void fetch(MAIL_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientEmail: email,
-          subject,
-          htmlContent,
-        }),
-      }).catch((error) => {
-        console.error('[sendFechaLimiteEmail] failed', error);
-      });
-    }
-
-    return { emailSent: true, missingUser: false, missingEmail: false };
-  }
-
   private static async sendCambioEstadoEmail(params: {
     reservaId: string;
-    email: string;
     accepted: boolean;
+    isApp: boolean;
   }) {
-    const { reservaId, email, accepted } = params;
-    if (MAIL_ENDPOINT && WEB_URL) {
-      const manageUrl = `${WEB_URL}/plan/${reservaId}/gestionar`;
-      const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
-      const { subject, htmlContent } = buildCambioEstadoEmail({ accepted, manageUrl, logoUrl });
-
-      void fetch(MAIL_ENDPOINT, {
+    if (!RESEND_ENDPOINT) return;
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      const templateKey = params.accepted
+        ? 'cliente_cambio_aceptado'
+        : 'cliente_cambio_rechazado';
+      await fetch(RESEND_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          recipientEmail: email,
-          subject,
-          htmlContent,
+          data: {
+            reservaId: params.reservaId,
+            templateKey,
+            isApp: params.isApp,
+          },
         }),
-      }).catch((error) => {
-        console.error('[sendCambioEstadoEmail] failed', error);
       });
+    } catch (error) {
+      console.error('[sendCambioEstadoEmail] failed', error);
     }
   }
 
@@ -1137,22 +1086,97 @@ export class ReservaDetalleService {
     confirmed: boolean;
   }) {
     const { reservaId, email, confirmed } = params;
-    if (MAIL_ENDPOINT && WEB_URL) {
-      const manageUrl = `${WEB_URL}/plan/${reservaId}/gestionar`;
-      const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
-      const { subject, htmlContent } = buildExpiradaEstadoEmail({ confirmed, manageUrl, logoUrl });
+    if (!confirmed) {
+      const isApp = ReservaDetalleService.getIsAppFromSnapshot(
+        await ReservaDetalleService.getReservaSnapshot(reservaId)
+      );
+      await this.sendReservaCanceladaLocalEmail({ reservaId, isApp });
+      return;
+    }
+    const isApp = ReservaDetalleService.getIsAppFromSnapshot(
+      await ReservaDetalleService.getReservaSnapshot(reservaId)
+    );
+    await this.sendReservaReconfirmacionEmail({ reservaId, isApp });
+  }
 
-      void fetch(MAIL_ENDPOINT, {
+  private static async sendReservaCanceladaLocalEmail(params: {
+    reservaId: string;
+    isApp: boolean;
+  }) {
+    if (!RESEND_ENDPOINT) return;
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      await fetch(RESEND_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          recipientEmail: email,
-          subject,
-          htmlContent,
+          data: {
+            reservaId: params.reservaId,
+            templateKey: 'cliente_reserva_cancelada_local',
+            isApp: params.isApp,
+          },
         }),
-      }).catch((error) => {
-        console.error('[sendExpiradaEstadoEmail] failed', error);
       });
+    } catch (error) {
+      console.error('[sendReservaCanceladaLocalEmail] failed', error);
+    }
+  }
+
+  private static async sendReservaReconfirmacionEmail(params: {
+    reservaId: string;
+    isApp: boolean;
+  }) {
+    if (!RESEND_ENDPOINT) return;
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      await fetch(RESEND_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          data: {
+            reservaId: params.reservaId,
+            templateKey: 'cliente_reconfirmacion_reserva_local',
+            isApp: params.isApp,
+          },
+        }),
+      });
+    } catch (error) {
+      console.error('[sendReservaReconfirmacionEmail] failed', error);
+    }
+  }
+
+  private static async sendReservaCambioEmail(params: {
+    reservaId: string;
+    isApp: boolean;
+  }) {
+    if (!RESEND_ENDPOINT) return;
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      await fetch(RESEND_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          data: {
+            reservaId: params.reservaId,
+            templateKey: 'cliente_cambio_por_local',
+            isApp: params.isApp,
+          },
+        }),
+      });
+    } catch (error) {
+      console.error('[sendReservaCambioEmail] failed', error);
     }
   }
 
@@ -1163,45 +1187,38 @@ export class ReservaDetalleService {
     changes: string[];
   }) {
     const { reservaId, subject, intro, changes } = params;
-    if (!MAIL_ENDPOINT || !WEB_URL) return { emailSent: false, missingUser: false, missingEmail: true };
-    const { email } = await this.getClienteDatos({ reservaId });
-    if (!email) return { emailSent: false, missingUser: false, missingEmail: true };
-    const manageUrl = `${WEB_URL}/plan/${reservaId}/gestionar`;
-    const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
-    const emailTemplate = buildReservaUpdateEmail({ subject, intro, changes, manageUrl, logoUrl });
-
-    void fetch(MAIL_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipientEmail: email,
-        subject: emailTemplate.subject,
-        htmlContent: emailTemplate.htmlContent,
-      }),
-    }).catch((error) => {
-      console.error('[sendReservaUpdateEmail] failed', error);
-    });
+    const isApp = ReservaDetalleService.getIsAppFromSnapshot(
+      await ReservaDetalleService.getReservaSnapshot(reservaId)
+    );
+    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
     return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
   static async sendReservaManageEmail(params: { reservaId: string; email: string }) {
     const { reservaId, email } = params;
-    if (MAIL_ENDPOINT && WEB_URL) {
-      const manageUrl = `${WEB_URL}/plan/${reservaId}/gestionar`;
-      const logoUrl = `${WEB_URL}/komvo/logotipo-black.png`;
-      const { subject, htmlContent } = buildReservaManageEmail({ manageUrl, logoUrl });
-
-      void fetch(MAIL_ENDPOINT, {
+    if (!RESEND_ENDPOINT) return;
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      const isApp = ReservaDetalleService.getIsAppFromSnapshot(
+        await ReservaDetalleService.getReservaSnapshot(reservaId)
+      );
+      await fetch(RESEND_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          recipientEmail: email,
-          subject,
-          htmlContent,
+          data: {
+            reservaId,
+            templateKey: 'cliente_reminder_reserva',
+            isApp,
+          },
         }),
-      }).catch((error) => {
-        console.error('[sendReservaManageEmail] failed', error);
       });
+    } catch (error) {
+      console.error('[sendReservaManageEmail] failed', error);
     }
   }
 }

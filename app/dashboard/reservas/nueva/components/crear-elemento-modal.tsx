@@ -26,7 +26,6 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState<number>(0);
   const [duracionMin, setDuracionMin] = useState('2 horas');
-  const [duracionMax, setDuracionMax] = useState('3 horas');
   const [saving, setSaving] = useState(false);
   const [scope, setScope] = useState<'reserva' | 'pack' | 'restaurante' | null>(null);
   const [diasDisponibles, setDiasDisponibles] = useState<string[]>(DIAS);
@@ -36,13 +35,14 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
     setDescripcion('');
     setPrecio(0);
     setDuracionMin('2 horas');
-    setDuracionMax('3 horas');
     setDiasDisponibles(DIAS);
     setScope(null);
   };
 
   const handleSave = async () => {
-    if (!packId || !nombre || !descripcion) return;
+    if (!packId || !nombre.trim() || !descripcion.trim()) return;
+    if (precio <= 0) return;
+    if (packKind === 'Barra Libre' && !duracionMin.trim()) return;
     if (scope === 'restaurante' && diasDisponibles.length === 0) return;
     setSaving(true);
     try {
@@ -55,7 +55,6 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
           descripcion,
           precio,
           duracionMin,
-          duracionMax,
         });
         if (entry) onCreated(entry);
         reset();
@@ -110,7 +109,6 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
               const intervaloObj = asObject(intervalo);
               return {
                 duracionMin: String(intervaloObj.duracionMin ?? ''),
-                duracionMax: String(intervaloObj.duracionMax ?? ''),
                 precio: toNumber(intervaloObj.precio),
               };
             }),
@@ -140,7 +138,6 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
           descripcion,
           precio,
           duracionMin,
-          duracionMax,
         });
         if (!entry) return;
         if (packKind === 'Menú' || packKind === 'Cocktail') {
@@ -204,7 +201,6 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
             const intervaloObj = asObject(intervalo);
             return {
               duracionMin: String(intervaloObj.duracionMin ?? ''),
-              duracionMax: String(intervaloObj.duracionMax ?? ''),
               precio: toNumber(intervaloObj.precio),
             };
           }),
@@ -236,7 +232,6 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
         descripcion,
         precio,
         duracionMin,
-        duracionMax,
       });
       if (!entry) return;
       if (packKind === 'Menú' || packKind === 'Cocktail') {
@@ -257,6 +252,9 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
   };
 
   const label = packKind.toLowerCase();
+  const precioInvalid = precio <= 0;
+  const duracionInvalid = packKind === 'Barra Libre' && !duracionMin.trim();
+  const baseInvalid = !nombre.trim() || !descripcion.trim() || precioInvalid || duracionInvalid;
 
   return (
     <>
@@ -285,18 +283,14 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
             <div>
               <label className="text-sm font-medium text-slate-700">Precio</label>
               <NumberInput value={precio} onChangeValue={(value) => setPrecio(value)} />
+              {precioInvalid && <p className="mt-1 text-xs text-rose-600">Precio requerido.</p>}
             </div>
 
             {packKind === 'Barra Libre' && (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Duración mínima</label>
-                  <Input value={duracionMin} onChange={(event) => setDuracionMin(event.target.value)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Duración máxima</label>
-                  <Input value={duracionMax} onChange={(event) => setDuracionMax(event.target.value)} />
-                </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Duración</label>
+                <Input value={duracionMin} onChange={(event) => setDuracionMin(event.target.value)} />
+                {duracionInvalid && <p className="mt-1 text-xs text-rose-600">Duración requerida.</p>}
               </div>
             )}
 
@@ -400,6 +394,7 @@ export function CrearElementoModal({ packId, packKind, restauranteId, onCreated 
               onClick={handleSave}
               disabled={
                 saving ||
+                baseInvalid ||
                 (scope === 'restaurante' && diasDisponibles.length === 0)
               }
             >
@@ -420,7 +415,6 @@ type BuildEntryParams = {
   descripcion: string;
   precio: number;
   duracionMin: string;
-  duracionMax: string;
 };
 
 const buildEntry = ({
@@ -431,7 +425,6 @@ const buildEntry = ({
   descripcion,
   precio,
   duracionMin,
-  duracionMax,
 }: BuildEntryParams): MenuEditForm | TicketEditForm | BarraLibreEditForm | null => {
   if (!nombre || !descripcion) return null;
 
@@ -439,7 +432,7 @@ const buildEntry = ({
     return {
       Nombre: nombre,
       Descripción: descripcion,
-      intervalos: [{ duracionMin, duracionMax, precio }],
+      intervalos: [{ duracionMin, precio }],
       disponibilidadPorRestaurante: disponibilidad,
       restaurantesIds,
     };

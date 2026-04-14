@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,12 +8,25 @@ import { CARACTERISTICAS_FIJAS } from '@/lib/validators/restaurante-caracteristi
 import type { RestauranteNewForm } from '@/lib/validators/restaurante-new';
 import { CharacteristicDialog } from '../characteristic-dialog';
 
-export function SalasStep() {
+type SalasStepProps = {
+  imagenes: File[];
+};
+
+export function SalasStep({ imagenes }: SalasStepProps) {
   const form = useFormContext<RestauranteNewForm>();
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'salas' });
   const [dialogState, setDialogState] = useState<{ index: number; item: string } | null>(null);
   const [dialogDescription, setDialogDescription] = useState('');
   const restauranteCaracteristicas = form.watch('caracteristicas') ?? {};
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+
+  useEffect(() => {
+    const urls = imagenes.map((file) => URL.createObjectURL(file));
+    setImagePreviews(urls);
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [imagenes]);
 
   const handleToggle = (index: number, item: string) => {
     const current = form.getValues(`salas.${index}.caracteristicas`) ?? {};
@@ -160,6 +173,43 @@ export function SalasStep() {
               </p>
             </div>
             <div className="mt-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Imágenes de la sala</p>
+                <p className="text-xs text-slate-500">
+                  Selecciona imágenes ya subidas en el paso de Archivos para asociarlas a esta sala.
+                </p>
+                {imagePreviews.length === 0 ? (
+                  <p className="mt-2 text-xs text-slate-400">Aún no has subido imágenes.</p>
+                ) : (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {imagePreviews.map((url, imgIndex) => {
+                      const current = form.watch(`salas.${index}.imagenes`) ?? [];
+                      const key = String(imgIndex);
+                      const selected = current.includes(key);
+                      return (
+                        <button
+                          key={`${url}-${imgIndex}`}
+                          type="button"
+                          className={`group relative overflow-hidden rounded-xl border text-left transition ${
+                            selected ? 'border-[#7472fd] ring-1 ring-[#7472fd]/40' : 'border-slate-200 hover:border-[#7472fd]/50'
+                          }`}
+                          onClick={() => {
+                            const next = selected ? current.filter((item: string) => item !== key) : [...current, key];
+                            form.setValue(`salas.${index}.imagenes`, next, { shouldDirty: true });
+                          }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt={`Imagen ${imgIndex + 1}`} className="h-28 w-full object-cover" />
+                          <div className="flex items-center justify-between px-3 py-2 text-xs text-slate-600">
+                            <span>Imagen {imgIndex + 1}</span>
+                            <span className="font-semibold">{selected ? 'Seleccionada' : 'Añadir'}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               <p className="text-sm font-semibold text-slate-900">Características de la sala</p>
               {Object.keys(restauranteCaracteristicas).length > 0 && (
                 <div className="rounded-xl border border-slate-100 bg-white p-3">
@@ -226,6 +276,7 @@ export function SalasStep() {
             permiteReservaSinCompraAnticipada: false,
             precioPrivatizacion: 0,
             caracteristicas: {},
+            imagenes: [],
           })
         }
       >

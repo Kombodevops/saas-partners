@@ -142,6 +142,8 @@ export function ReservaDetalleContent({
   const [savingExpiredAction, setSavingExpiredAction] = useState<'confirm' | 'cancel' | null>(null);
   const [expiredConfirmOpen, setExpiredConfirmOpen] = useState(false);
   const [expiredConfirmAction, setExpiredConfirmAction] = useState<'confirm' | 'cancel' | null>(null);
+  const [cancelLocalOpen, setCancelLocalOpen] = useState(false);
+  const [savingCancelLocal, setSavingCancelLocal] = useState(false);
   const [emailFailDialog, setEmailFailDialog] = useState(false);
   const [emailFailLink, setEmailFailLink] = useState<string | null>(null);
   const [emailFailCopied, setEmailFailCopied] = useState(false);
@@ -311,6 +313,11 @@ export function ReservaDetalleContent({
     const hasAnticipo = anticipoValue != null && Number(anticipoValue) > 0;
     return categoria === 'flexible' && !hasAnticipo;
   }, [reserva?.pack?.Categoria, precioAnticipo]);
+  const canCancelReserva = useMemo(() => {
+    const estado = (reserva?.estado ?? '').toLowerCase();
+    if (!estado) return false;
+    return !['fallado', 'expirado', 'completado', 'pendiente', 'pendientecambio'].includes(estado);
+  }, [reserva?.estado]);
   const adhocSnapshot = precio.adhoc as
     | {
         items?: Array<Record<string, unknown>>;
@@ -509,8 +516,7 @@ export function ReservaDetalleContent({
       return selectedTickets.some((ticket) => !ticket.disabled);
     }
     if (selectedPack.Subcategoria === 'Barra Libre') {
-      const tiempo = (selectedInterval as Record<string, unknown> | null)?.tiempoSolicitado;
-      return Boolean(selectedElement && selectedInterval && tiempo);
+      return Boolean(selectedElement && selectedInterval);
     }
     return Boolean(selectedElement);
   }, [
@@ -708,6 +714,13 @@ export function ReservaDetalleContent({
       setFacturas(facturasResult.visibles);
       setFacturasAll(facturasResult.facturas);
 
+      const fallbackCliente = {
+        email:
+          reservaData.usuario?.Email ??
+          (reservaData.usuario as { email?: string } | undefined)?.email ??
+          null,
+        telefono: reservaData.usuario?.Telefono ?? null,
+      };
       if (!reservaData.leadKomvo) {
         const clienteData = await ReservaDetalleService.getClienteDatos({
           reservaId,
@@ -715,7 +728,9 @@ export function ReservaDetalleContent({
           clienteEmail: reservaData.usuario?.Email,
           clienteTelefono: reservaData.usuario?.Telefono,
         });
-        setCliente(clienteData);
+        setCliente({ ...fallbackCliente, ...clienteData });
+      } else {
+        setCliente(fallbackCliente);
       }
 
       const anyPagado = await ReservaDetalleService.hasAsistenciasPagadas(reservaId);
@@ -1520,73 +1535,38 @@ export function ReservaDetalleContent({
                 </CardContent>
               </Card>
             )}
-            {isKomvo ? (
-              <Card className="border-none bg-white shadow-sm">
-                <CardHeader>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                    Compartir enlace
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm text-slate-600">
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="break-all text-xs text-slate-600">
-                      {WEB_URL && reserva?.id ? `${WEB_URL}/plan/${reserva.id}/gestionar` : '—'}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          if (!WEB_URL || !reserva?.id) return;
-                          try {
-                            await navigator.clipboard.writeText(`${WEB_URL}/plan/${reserva.id}/gestionar`);
-                            setEmailFailCopied(true);
-                            window.setTimeout(() => setEmailFailCopied(false), 1500);
-                          } catch {}
-                        }}
-                        className="gap-2"
-                      >
-                        <Copy className="h-4 w-4" />
-                        {emailFailCopied ? 'Copiado' : 'Copiar enlace'}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <ClienteCard
-                nombre={reserva.usuario?.['Nombre de usuario']}
-                email={cliente.email}
-                telefono={cliente.telefono}
-                manageUrl={
-                  WEB_URL && reserva?.id
-                    ? isAdhocPack && !reserva.pagado
+            <ClienteCard
+              nombre={reserva.usuario?.['Nombre de usuario']}
+              email={cliente.email}
+              telefono={cliente.telefono}
+              showContact={!isKomvo}
+              manageUrl={
+                WEB_URL && reserva?.id
+                  ? isAdhocPack && !reserva.pagado
+                    ? `${WEB_URL}/pres/${reserva.id}`
+                    : !reserva.leadKomvo &&
+                        (reserva.estado ?? '').toLowerCase() === 'aceptado' &&
+                        !reserva.pagado &&
+                        (reserva.tipoCompra ?? '').toLowerCase() !== 'entradas'
                       ? `${WEB_URL}/pres/${reserva.id}`
-                      : !reserva.leadKomvo &&
-                          (reserva.estado ?? '').toLowerCase() === 'aceptado' &&
-                          !reserva.pagado &&
-                          (reserva.tipoCompra ?? '').toLowerCase() !== 'entradas'
-                        ? `${WEB_URL}/pres/${reserva.id}`
-                        : `${WEB_URL}/plan/${reserva.id}/gestionar`
-                    : null
+                      : `${WEB_URL}/plan/${reserva.id}/gestionar`
+                  : null
+              }
+              userId={reserva.usuario?.id ?? null}
+              sendingEmail={sendingManageEmail}
+              onSendEmail={async () => {
+                if (!reserva?.id || !cliente.email) return;
+                setSendingManageEmail(true);
+                try {
+                  await ReservaDetalleService.sendReservaManageEmail({
+                    reservaId: reserva.id,
+                    email: cliente.email,
+                  });
+                } finally {
+                  setSendingManageEmail(false);
                 }
-                userId={reserva.usuario?.id ?? null}
-                sendingEmail={sendingManageEmail}
-                onSendEmail={async () => {
-                  if (!reserva?.id || !cliente.email) return;
-                  setSendingManageEmail(true);
-                  try {
-                    await ReservaDetalleService.sendReservaManageEmail({
-                      reservaId: reserva.id,
-                      email: cliente.email,
-                    });
-                  } finally {
-                    setSendingManageEmail(false);
-                  }
-                }}
-              />
-            )}
+              }}
+            />
             <Card className="border-none bg-white shadow-sm">
               <CardContent className="space-y-4 py-2">
                 <div className="flex items-start justify-between gap-3">
@@ -1828,14 +1808,8 @@ export function ReservaDetalleContent({
                             )}
                             {Boolean(precioBarra?.intervaloSeleccionado) && (
                               <p className="mt-1 text-xs text-slate-500">
-                                Intervalo: {String(((precioBarra?.intervaloSeleccionado as Record<string, unknown>)?.duracionMin ?? ''))} -{' '}
-                                {String(((precioBarra?.intervaloSeleccionado as Record<string, unknown>)?.duracionMax ?? ''))}
-                              </p>
-                            )}
-                            {String(((precioBarra?.intervaloSeleccionado as Record<string, unknown>)?.tiempoSolicitado ?? '')) && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                Tiempo seleccionado:{' '}
-                                {String(((precioBarra?.intervaloSeleccionado as Record<string, unknown>)?.tiempoSolicitado ?? ''))}
+                                Duración:{' '}
+                                {String(((precioBarra?.intervaloSeleccionado as Record<string, unknown>)?.duracionMin ?? ''))}
                               </p>
                             )}
                           </div>
@@ -1960,6 +1934,18 @@ export function ReservaDetalleContent({
                   )}
                 </CardContent>
               </Card>
+            )}
+            {canCancelReserva && (
+              <div className="mt-3">
+                <Button
+                  variant="outline"
+                  className="w-full border-rose-200 text-rose-600 hover:bg-rose-50"
+                  onClick={() => setCancelLocalOpen(true)}
+                  disabled={savingCancelLocal}
+                >
+                  Cancelar reserva
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -2173,6 +2159,35 @@ export function ReservaDetalleContent({
               }}
             >
               Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={cancelLocalOpen} onOpenChange={setCancelLocalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar reserva</AlertDialogTitle>
+            <AlertDialogDescription>
+              La reserva pasará a estado fallado y se notificará al cliente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!reserva?.id) return;
+                setSavingCancelLocal(true);
+                try {
+                  await ReservaDetalleService.cancelarReservaLocal({ reservaId: reserva.id });
+                  await loadAll({ silent: true });
+                  setCancelLocalOpen(false);
+                } finally {
+                  setSavingCancelLocal(false);
+                }
+              }}
+            >
+              Confirmar cancelación
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

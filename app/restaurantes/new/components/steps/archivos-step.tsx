@@ -1,5 +1,5 @@
 import { ImagePlus, Trash2, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -37,6 +37,15 @@ export function ArchivosStep({
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+
+  useEffect(() => {
+    const urls = imagenes.map((file) => URL.createObjectURL(file));
+    setImagePreviews(urls);
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [imagenes]);
 
   const handleRemoveImagen = (index: number) => {
     const next = imagenes.filter((_, idx) => idx !== index);
@@ -133,6 +142,25 @@ export function ArchivosStep({
         {imagenes.length > 0 && (
           <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-xs text-slate-500">{imagenes.length} imágenes seleccionadas</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {imagePreviews.map((url, index) => (
+                <div key={`${url}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`Imagen ${index + 1}`} className="h-32 w-full object-cover" />
+                  <div className="absolute right-2 top-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="bg-white/90 text-rose-600 hover:bg-white"
+                      onClick={() => handleRemoveImagen(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
             <div className="space-y-2">
               {imagenes.map((file, index) => (
                 <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
@@ -190,8 +218,14 @@ export function ArchivosStep({
           </Button>
         </div>
         {logo && (
-          <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            <span className="truncate">Logo seleccionado: {logo.name}</span>
+          <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <div className="h-16 w-16 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={URL.createObjectURL(logo)} alt="Logo" className="h-full w-full object-cover" />
+            </div>
+            <div className="flex-1">
+              <p className="truncate">Logo seleccionado: {logo.name}</p>
+            </div>
             <Button
               type="button"
               variant="ghost"

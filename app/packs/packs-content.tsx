@@ -196,16 +196,22 @@ export function PacksContent() {
                                   <p className="text-slate-700">{barra.Nombre || 'Barra libre'}</p>
                                   <div className="mt-1 space-y-1">
                                     {(barra.intervalos ?? []).length === 0 && (
-                                      <p className="text-slate-400">Sin intervalos.</p>
+                                      <p className="text-slate-400">Sin duración.</p>
                                     )}
-                                    {(barra.intervalos ?? []).map((intervalo, intervalIndex) => (
-                                      <div key={`intervalo-${intervalIndex}`} className="flex items-center justify-between text-[11px] text-slate-600">
-                                        <span>
-                                          {intervalo.duracionMin || '—'} - {intervalo.duracionMax || '—'}
-                                        </span>
+                                    {(barra.intervalos ?? []).slice(0, 3).map((intervalo, intervalIndex) => (
+                                      <div
+                                        key={`intervalo-${intervalIndex}`}
+                                        className="flex items-center justify-between text-[11px] text-slate-600"
+                                      >
+                                        <span>{intervalo.duracionMin || '—'}</span>
                                         <span className="font-semibold text-slate-900">{intervalo.precio ?? 0}€</span>
                                       </div>
                                     ))}
+                                    {(barra.intervalos ?? []).length > 3 && (
+                                      <p className="text-[11px] text-slate-400">
+                                        +{(barra.intervalos ?? []).length - 3} duraciones más
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               ))}

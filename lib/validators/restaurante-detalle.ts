@@ -50,6 +50,7 @@ const SalaSchema = z.object({
   aforoMaximo: z.union([z.string(), z.number()]).catch(0),
   aforoMinimo: z.union([z.string(), z.number()]).catch(0),
   caracteristicas: z.record(z.string(), z.string()).catch({}),
+  imagenes: z.array(z.string()).optional().catch([]),
   permiteReservaSinCompraAnticipada: z.boolean().catch(false),
   precioPrivatizacion: z.union([z.string(), z.number()]).catch(0),
 });

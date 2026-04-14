@@ -45,6 +45,9 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
   const [confirmImportAllOpen, setConfirmImportAllOpen] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [successText, setSuccessText] = useState('');
+  const [removeNotice, setRemoveNotice] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [showSaveError, setShowSaveError] = useState(false);
   const importRef = useRef<HTMLDivElement | null>(null);
   const [isImportVisible, setIsImportVisible] = useState(false);
   const visible = useMemo(() => tickets, [tickets]);
@@ -68,6 +71,8 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
       skipResetRef.current = false;
       return;
     }
+    setRemoveNotice(null);
+    setShowSaveError(false);
     const safeTickets = (tickets ?? []).map((ticket) => ({
       Nombre: ticket.Nombre ?? '',
       Descripción: ticket['Descripción'] ?? '',
@@ -77,6 +82,54 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
     }));
     form.reset({ tickets: safeTickets });
   }, [form, tickets, open]);
+
+  const showSaveErrorMessage = (message: string) => {
+    setSaveError(message);
+    setShowSaveError(true);
+    window.setTimeout(() => setShowSaveError(false), 3500);
+  };
+
+  const handleInvalidSubmit = (errors: Record<string, unknown>) => {
+    const extractMessage = (value: unknown): string | null => {
+      if (!value) return null;
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        if (typeof record.message === 'string') return record.message;
+        if (record.root) {
+          const rootMessage = extractMessage(record.root);
+          if (rootMessage) return rootMessage;
+        }
+        if (Array.isArray(record._errors) && typeof record._errors[0] === 'string') {
+          return record._errors[0];
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const msg = extractMessage(item);
+            if (msg) return msg;
+          }
+          return null;
+        }
+        for (const key of Object.keys(record)) {
+          const msg = extractMessage(record[key]);
+          if (msg) return msg;
+        }
+      }
+      return null;
+    };
+
+    const ticketsErrors = (errors as { tickets?: unknown }).tickets;
+    if (Array.isArray(ticketsErrors)) {
+      const idx = ticketsErrors.findIndex(Boolean);
+      if (idx >= 0) {
+        setFocusedTicketIndex(idx);
+        setIsAddingSingle(false);
+      }
+    }
+
+    const message = extractMessage(errors);
+    showSaveErrorMessage(message || 'Revisa los campos obligatorios.');
+  };
 
   useEffect(() => {
     if (!restauranteId || !importRef.current) return;
@@ -123,6 +176,9 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
   };
 
   const removeTicket = (index: number) => {
+    const nombre = String(form.getValues(`tickets.${index}.Nombre` as const) ?? '').trim();
+    const label = nombre || `Ticket ${index + 1}`;
+    setRemoveNotice(`Se eliminará ${label} al guardar.`);
     remove(index);
   };
 
@@ -172,6 +228,8 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
         setSuccessText(label);
         setSuccessDialogOpen(true);
       }
+    } catch (err) {
+      showSaveErrorMessage(err instanceof Error ? err.message : 'No se pudieron guardar los tickets.');
     } finally {
       setIsSaving(false);
     }
@@ -472,8 +530,18 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
             <DialogHeader>
               <DialogTitle>Editar tickets</DialogTitle>
             </DialogHeader>
+            {removeNotice && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {removeNotice}
+              </div>
+            )}
+            {showSaveError && saveError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {saveError}
+              </div>
+            )}
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-4">
                 {fields.map((field, index) => {
                   if (focusedTicketIndex != null && focusedTicketIndex !== index) return null;
                   return (
@@ -823,8 +891,18 @@ export function TicketsEditor({ tickets, onSave, restaurantes, restauranteId }: 
             <DialogHeader>
               <DialogTitle>Editar tickets</DialogTitle>
             </DialogHeader>
+            {removeNotice && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {removeNotice}
+              </div>
+            )}
+            {showSaveError && saveError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {saveError}
+              </div>
+            )}
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-4">
                 {fields.map((field, index) => {
                   if (focusedTicketIndex != null && focusedTicketIndex !== index) return null;
                   return (

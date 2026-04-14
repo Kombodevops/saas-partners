@@ -6,10 +6,10 @@ export const STEPS = [
   { key: 'horarios', title: 'Horarios' },
   { key: 'raciones', title: 'Raciones' },
   { key: 'caracteristicas', title: 'Características' },
+  { key: 'archivos', title: 'Archivos' },
   { key: 'salas', title: 'Salas' },
   { key: 'consumiciones', title: 'Consumiciones' },
   { key: 'extras', title: 'Extras' },
-  { key: 'archivos', title: 'Archivos' },
   { key: 'responsable', title: 'Responsable' },
   { key: 'resumen', title: 'Resumen' },
 ] as const;

@@ -72,6 +72,7 @@ const SalaSchema = z.object({
   permiteReservaSinCompraAnticipada: z.boolean(),
   precioPrivatizacion: z.number().min(0, 'El precio debe ser válido'),
   caracteristicas: z.record(z.string(), z.string().min(1, 'La descripción es obligatoria')),
+  imagenes: z.array(z.string()).optional().catch([]),
 });
 
 const CaracteristicasSchema = z.record(
