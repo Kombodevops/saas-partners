@@ -50,6 +50,13 @@ export type ChatMessageDetalle = ChatMessageDoc & { id: string };
 export type NotaDetalle = NotaDoc;
 export type EtiquetaDetalle = EtiquetaDoc;
 
+export type CambioReserva = {
+  campo: string;   // 'fecha' | 'hora' | 'horaFin' | 'aforoMin' | 'aforoMax' | 'plan' | 'menu' | 'precio' | 'tickets' | 'barraLibre' | 'duracion' | 'anticipoDesc' | 'anticipoPrecio' | 'adhocTotal' | 'local' | 'espacio'
+  label: string;   // human-readable: "Fecha del evento", "Menú seleccionado", etc.
+  anterior: string;
+  nuevo: string;
+};
+
 const RESEND_ENDPOINT = process.env.NEXT_PUBLIC_SEND_RESEND_EMAIL ?? '';
 
 export class ReservaDetalleService {
@@ -384,6 +391,7 @@ export class ReservaDetalleService {
     );
 
     await batch.commit();
+
     return { ok: true as const };
   }
 
@@ -758,7 +766,7 @@ export class ReservaDetalleService {
     });
     if (email) {
       const isApp = Boolean((data.usuario as { isApp?: boolean } | undefined)?.isApp);
-      await this.sendCambioEstadoEmail({
+      void this.sendCambioEstadoEmail({
         reservaId,
         accepted: true,
         isApp,
@@ -791,7 +799,7 @@ export class ReservaDetalleService {
     });
     if (email) {
       const isApp = Boolean((data.usuario as { isApp?: boolean } | undefined)?.isApp);
-      await this.sendCambioEstadoEmail({
+      void this.sendCambioEstadoEmail({
         reservaId,
         accepted: false,
         isApp,
@@ -823,7 +831,7 @@ export class ReservaDetalleService {
       clienteEmail,
     });
     if (email) {
-      await this.sendExpiradaEstadoEmail({
+      void this.sendExpiradaEstadoEmail({
         reservaId,
         email,
         confirmed: true,
@@ -857,7 +865,7 @@ export class ReservaDetalleService {
       clienteEmail,
     });
     if (email) {
-      await this.sendExpiradaEstadoEmail({
+      void this.sendExpiradaEstadoEmail({
         reservaId,
         email,
         confirmed: false,
@@ -881,7 +889,7 @@ export class ReservaDetalleService {
     });
 
     const isApp = Boolean((data.usuario as { isApp?: boolean } | undefined)?.isApp);
-    await this.sendReservaCanceladaLocalEmail({ reservaId, isApp });
+    void this.sendReservaCanceladaLocalEmail({ reservaId, isApp });
   }
 
   static async updateFechaLimitePago(params: {
@@ -889,8 +897,9 @@ export class ReservaDetalleService {
     fechaLimitePago: string;
     usuarioId?: string | null;
     usuarioEmail?: string | null;
+    cambios?: CambioReserva[];
   }) {
-    const { reservaId, fechaLimitePago } = params;
+    const { reservaId, fechaLimitePago, cambios } = params;
     if (!reservaId || !fechaLimitePago) {
       return { emailSent: false, missingUser: true, missingEmail: true };
     }
@@ -906,7 +915,7 @@ export class ReservaDetalleService {
     const isApp = ReservaDetalleService.getIsAppFromSnapshot(
       await ReservaDetalleService.getReservaSnapshot(reservaId)
     );
-    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    void ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp, cambios });
     return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
@@ -915,8 +924,9 @@ export class ReservaDetalleService {
     restauranteId: string;
     salaNombre?: string;
     salaCustom?: { nombre: string; aforoMinimo?: number; aforoMaximo?: number };
+    cambios?: CambioReserva[];
   }) {
-    const { reservaId, restauranteId, salaNombre, salaCustom } = params;
+    const { reservaId, restauranteId, salaNombre, salaCustom, cambios } = params;
     if (!reservaId || !restauranteId || (!salaNombre && !salaCustom)) return;
 
     const restauranteSnap = await getDoc(doc(db, 'restaurants', restauranteId));
@@ -972,12 +982,12 @@ export class ReservaDetalleService {
     const isApp = ReservaDetalleService.getIsAppFromSnapshot(
       await ReservaDetalleService.getReservaSnapshot(reservaId)
     );
-    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    void ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
     return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
-  static async updateReservaPack(params: { reservaId: string; pack: PackCatalogItem; precio?: Record<string, unknown> }) {
-    const { reservaId, pack, precio } = params;
+  static async updateReservaPack(params: { reservaId: string; pack: PackCatalogItem; precio?: Record<string, unknown>; cambios?: CambioReserva[] }) {
+    const { reservaId, pack, precio, cambios } = params;
     if (!reservaId) return;
     const ref = doc(db, 'reservas', reservaId);
     const payload: Record<string, unknown> = {
@@ -990,15 +1000,16 @@ export class ReservaDetalleService {
     const isApp = ReservaDetalleService.getIsAppFromSnapshot(
       await ReservaDetalleService.getReservaSnapshot(reservaId)
     );
-    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    void ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp, cambios });
     return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
   static async updateReservaEvento(params: {
     reservaId: string;
     kombo: Record<string, unknown>;
+    cambios?: CambioReserva[];
   }) {
-    const { reservaId, kombo } = params;
+    const { reservaId, kombo, cambios } = params;
     if (!reservaId) return;
     const ref = doc(db, 'reservas', reservaId);
     await updateDoc(ref, {
@@ -1015,7 +1026,7 @@ export class ReservaDetalleService {
     const isApp = ReservaDetalleService.getIsAppFromSnapshot(
       await ReservaDetalleService.getReservaSnapshot(reservaId)
     );
-    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    void ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp, cambios });
     return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
@@ -1061,7 +1072,7 @@ export class ReservaDetalleService {
       const templateKey = params.accepted
         ? 'cliente_cambio_aceptado'
         : 'cliente_cambio_rechazado';
-      await fetch(RESEND_ENDPOINT, {
+      void fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1074,7 +1085,7 @@ export class ReservaDetalleService {
             isApp: params.isApp,
           },
         }),
-      });
+      }).catch((error) => console.error('[sendCambioEstadoEmail] failed', error));
     } catch (error) {
       console.error('[sendCambioEstadoEmail] failed', error);
     }
@@ -1090,13 +1101,13 @@ export class ReservaDetalleService {
       const isApp = ReservaDetalleService.getIsAppFromSnapshot(
         await ReservaDetalleService.getReservaSnapshot(reservaId)
       );
-      await this.sendReservaCanceladaLocalEmail({ reservaId, isApp });
+      void this.sendReservaCanceladaLocalEmail({ reservaId, isApp });
       return;
     }
     const isApp = ReservaDetalleService.getIsAppFromSnapshot(
       await ReservaDetalleService.getReservaSnapshot(reservaId)
     );
-    await this.sendReservaReconfirmacionEmail({ reservaId, isApp });
+    void this.sendReservaReconfirmacionEmail({ reservaId, isApp });
   }
 
   private static async sendReservaCanceladaLocalEmail(params: {
@@ -1107,7 +1118,7 @@ export class ReservaDetalleService {
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
-      await fetch(RESEND_ENDPOINT, {
+      void fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1120,7 +1131,7 @@ export class ReservaDetalleService {
             isApp: params.isApp,
           },
         }),
-      });
+      }).catch((error) => console.error('[sendReservaCanceladaLocalEmail] failed', error));
     } catch (error) {
       console.error('[sendReservaCanceladaLocalEmail] failed', error);
     }
@@ -1134,7 +1145,7 @@ export class ReservaDetalleService {
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
-      await fetch(RESEND_ENDPOINT, {
+      void fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1147,7 +1158,7 @@ export class ReservaDetalleService {
             isApp: params.isApp,
           },
         }),
-      });
+      }).catch((error) => console.error('[sendReservaReconfirmacionEmail] failed', error));
     } catch (error) {
       console.error('[sendReservaReconfirmacionEmail] failed', error);
     }
@@ -1156,12 +1167,13 @@ export class ReservaDetalleService {
   private static async sendReservaCambioEmail(params: {
     reservaId: string;
     isApp: boolean;
+    cambios?: CambioReserva[];
   }) {
     if (!RESEND_ENDPOINT) return;
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
-      await fetch(RESEND_ENDPOINT, {
+      void fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1172,9 +1184,10 @@ export class ReservaDetalleService {
             reservaId: params.reservaId,
             templateKey: 'cliente_cambio_por_local',
             isApp: params.isApp,
+            cambios: params.cambios ?? [],
           },
         }),
-      });
+      }).catch((error) => console.error('[sendReservaCambioEmail] failed', error));
     } catch (error) {
       console.error('[sendReservaCambioEmail] failed', error);
     }
@@ -1190,7 +1203,7 @@ export class ReservaDetalleService {
     const isApp = ReservaDetalleService.getIsAppFromSnapshot(
       await ReservaDetalleService.getReservaSnapshot(reservaId)
     );
-    await ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
+    void ReservaDetalleService.sendReservaCambioEmail({ reservaId, isApp });
     return { emailSent: true, missingUser: false, missingEmail: false };
   }
 
@@ -1203,7 +1216,7 @@ export class ReservaDetalleService {
       const isApp = ReservaDetalleService.getIsAppFromSnapshot(
         await ReservaDetalleService.getReservaSnapshot(reservaId)
       );
-      await fetch(RESEND_ENDPOINT, {
+      void fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1216,7 +1229,7 @@ export class ReservaDetalleService {
             isApp,
           },
         }),
-      });
+      }).catch((error) => console.error('[sendReservaManageEmail] failed', error));
     } catch (error) {
       console.error('[sendReservaManageEmail] failed', error);
     }

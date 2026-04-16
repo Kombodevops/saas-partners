@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,7 +15,7 @@ import {
 import { Calendar, Receipt, Wallet } from 'lucide-react';
 import type { FacturaDetalle, AsistenciaDetalle } from '@/lib/services/reserva-detalle.service';
 import { AuthService } from '@/lib/services/auth.service';
-import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type Props = {
@@ -237,6 +237,11 @@ type PayoutEntry = {
   status?: string;
 };
 
+type KomvoComisionInvoice = {
+  invoiceNumber?: string;
+  pdfUrl?: string;
+};
+
 export function FacturasCard({
   facturas,
   facturasAll,
@@ -257,6 +262,7 @@ export function FacturasCard({
   const [payoutInfo, setPayoutInfo] = useState<PayoutCheckResult | null>(null);
   const [payoutError, setPayoutError] = useState<string | null>(null);
   const [payouts, setPayouts] = useState<PayoutEntry[]>([]);
+  const [komvoInvoice, setKomvoInvoice] = useState<KomvoComisionInvoice | null>(null);
 
   const facturasUsuarios = useMemo(() => facturas.filter((f) => {
     const tipo = getFacturaTipo(f);
@@ -379,6 +385,24 @@ export function FacturasCard({
     }
   };
 
+  const loadLatestKomvoComisionInvoiceFromFirestore = async (): Promise<KomvoComisionInvoice | null> => {
+    if (!reservaId) return null;
+    try {
+      const invoicesRef = collection(db, 'reservas', reservaId, 'komvo_comision_invoices');
+      const invoiceSnap = await getDocs(query(invoicesRef, orderBy('createdAt', 'desc'), limit(1)));
+      if (invoiceSnap.empty) return null;
+      const data = invoiceSnap.docs[0].data() as Record<string, unknown>;
+      const pdf = (data.pdf as Record<string, unknown> | null | undefined) ?? undefined;
+      const pdfUrl = toString(data.pdfUrl) || toString(data.url) || toString(pdf?.url);
+      const invoiceNumber = toString(data.invoiceNumber);
+      if (!pdfUrl) return null;
+      return { invoiceNumber: invoiceNumber || undefined, pdfUrl };
+    } catch (error) {
+      console.error('Error leyendo komvo_comision_invoices:', error);
+      return null;
+    }
+  };
+
   const precheckPayoutEligibility = () => {
     if (!reservaPagado || reservaEstado !== 'completado') {
       return { ok: false, reason: 'La reserva debe estar completada y pagada.' };
@@ -485,6 +509,7 @@ export function FacturasCard({
   useEffect(() => {
     if (!dialogOpen) return;
     (async () => {
+      setKomvoInvoice(null);
       await loadPayoutsFromFirestore();
       const existingPayout = await loadLatestPayoutFromFirestore();
       if (existingPayout) {
@@ -493,6 +518,10 @@ export function FacturasCard({
           alreadyWithdrawn: true,
           existingPayout,
         });
+        if (leadKomvo) {
+          const invoice = await loadLatestKomvoComisionInvoiceFromFirestore();
+          setKomvoInvoice(invoice);
+        }
         return;
       }
       const precheck = precheckPayoutEligibility();
@@ -507,6 +536,40 @@ export function FacturasCard({
       await fetchPayoutAvailability();
     })();
   }, [dialogOpen]);
+
+  useEffect(() => {
+    if (!dialogOpen || !leadKomvo || !reservaId) return;
+    const payoutId =
+      payoutInfo?.existingPayout?.payoutId || payoutInfo?.payoutId || null;
+    if (!payoutId) return;
+
+    const invoicesRef = collection(db, 'reservas', reservaId, 'komvo_comision_invoices');
+    const q = query(invoicesRef, orderBy('createdAt', 'desc'), limit(1));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (snapshot.empty) {
+          setKomvoInvoice(null);
+          return;
+        }
+        const data = snapshot.docs[0].data() as Record<string, unknown>;
+        const pdf = (data.pdf as Record<string, unknown> | null | undefined) ?? undefined;
+        const pdfUrl = toString(data.pdfUrl) || toString(data.url) || toString(pdf?.url);
+        const invoiceNumber = toString(data.invoiceNumber);
+        if (!pdfUrl) {
+          setKomvoInvoice(null);
+          return;
+        }
+        setKomvoInvoice({ invoiceNumber: invoiceNumber || undefined, pdfUrl });
+      },
+      (error) => {
+        console.error('Error escuchando komvo_comision_invoices:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [dialogOpen, leadKomvo, reservaId, payoutInfo?.existingPayout?.payoutId, payoutInfo?.payoutId]);
 
   const combinedItems = useMemo(() => {
     const facturaItems = list.map((factura) => ({
@@ -546,14 +609,13 @@ export function FacturasCard({
   };
 
   return (
-    <Card className="border-none bg-white shadow-sm">
-      <CardHeader>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Pagos</p>
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-base text-slate-900">Resumen</CardTitle>
+    <Card className="gap-1.5 border-none bg-white p-4 shadow-sm">
+      <CardHeader className="p-0">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Pagos</p>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="h-7 self-start gap-2 px-3">
                 <Wallet className="h-4 w-4" />
                 Ver pagos
               </Button>
@@ -811,6 +873,14 @@ export function FacturasCard({
                                 '—'}
                             </p>
                           </div>
+                          {leadKomvo && komvoInvoice?.pdfUrl ? (
+                            <Button asChild variant="outline" size="sm" className="mt-2 h-8 w-full justify-center gap-2">
+                              <a href={komvoInvoice.pdfUrl} target="_blank" rel="noreferrer">
+                                <Receipt className="h-4 w-4" />
+                                Ver factura de comisión Komvo
+                              </a>
+                            </Button>
+                          ) : null}
                         </div>
                       )}
                   </div>
@@ -825,19 +895,12 @@ export function FacturasCard({
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 text-sm text-slate-600">
-        <div className="grid gap-3">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">Pagos de usuarios</p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">{formatAmount(totalUsuarios)}</p>
-              </div>
-              <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
-                <Receipt className="h-4 w-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-slate-500">{facturasUsuarios.length} pagos</p>
+      <CardContent className="p-0 text-sm text-slate-600">
+        <div>
+          <div className="min-w-0">
+            <p className="text-3xl font-semibold tabular-nums tracking-tight leading-none text-slate-900">
+              {formatAmount(totalUsuarios)}
+            </p>
           </div>
         </div>
 

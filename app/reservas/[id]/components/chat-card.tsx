@@ -21,6 +21,7 @@ type Props = {
   restauranteId?: string | null;
   nombreRestaurante?: string | null;
   responsableNombre?: string | null;
+  floatingRightOffset?: number;
   onSent?: () => void;
 };
 
@@ -34,6 +35,7 @@ export const ChatCard = memo(function ChatCard({
   restauranteId,
   nombreRestaurante,
   responsableNombre,
+  floatingRightOffset,
   onSent,
 }: Props) {
   const [liveUnread, setLiveUnread] = useState(unreadCount);
@@ -245,6 +247,31 @@ export const ChatCard = memo(function ChatCard({
     return newChatId;
   }, [activeChatId, reservaId, usuarioId, partnerId, restauranteId, nombreRestaurante, partnerName, usuarioNombre]);
 
+  const openChatFromExternal = useCallback(() => {
+    void (async () => {
+      if (open) {
+        requestAnimationFrame(() => inputRef.current?.focus());
+        return;
+      }
+      if (!activeChatId && !usuarioId) {
+        setShowNoUserNudge(true);
+        return;
+      }
+      const createdChatId = await ensureChatExists();
+      if (createdChatId) {
+        setActiveChatId(createdChatId);
+      }
+      setOpen(true);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    })();
+  }, [open, activeChatId, usuarioId, ensureChatExists]);
+
+  useEffect(() => {
+    const handler = () => openChatFromExternal();
+    window.addEventListener('komvo:open-chat', handler as EventListener);
+    return () => window.removeEventListener('komvo:open-chat', handler as EventListener);
+  }, [openChatFromExternal]);
+
   const handleScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
       const target = event.currentTarget;
@@ -282,9 +309,10 @@ export const ChatCard = memo(function ChatCard({
 
   return createPortal(
     <div
-      className={`fixed bottom-16 right-16 z-[60] flex flex-col-reverse items-end gap-3 pointer-events-none sm:z-[10000] sm:flex-col ${
+      className={`fixed bottom-16 right-6 z-[10050] flex flex-col-reverse items-end gap-3 pointer-events-none sm:flex-col lg:right-[400px] xl:right-[440px] 2xl:right-[480px] ${
         suppressChat ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
+      style={floatingRightOffset != null ? { right: floatingRightOffset } : undefined}
     >
       <div
         className={`pointer-events-auto fixed inset-0 sm:absolute sm:inset-auto sm:right-0 sm:bottom-[calc(64px+12px)] sm:w-[520px] sm:h-[560px] transition-all duration-300 origin-bottom-right ${
@@ -364,7 +392,7 @@ export const ChatCard = memo(function ChatCard({
       <div className="relative pointer-events-auto">
       <button
         type="button"
-        className={`relative flex h-16 w-16 items-center justify-center rounded-full text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.22)] transition-all duration-300 hover:scale-105 active:scale-95 ${
+        className={`relative flex h-14 items-center justify-center gap-2 rounded-full px-5 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.22)] transition-all duration-300 hover:scale-105 active:scale-95 ${
           open ? 'bg-slate-300' : 'bg-slate-200'
         } ${open ? 'opacity-0 pointer-events-none sm:opacity-100 sm:pointer-events-auto' : 'opacity-100'}`}
         onClick={async () => {
@@ -387,6 +415,7 @@ export const ChatCard = memo(function ChatCard({
         title="Abrir chat"
       >
         {open ? <X className="h-7 w-7" /> : <MessagesSquare className="h-7 w-7" />}
+        {!open && <span className="text-sm font-semibold">Chat</span>}
         {liveUnread > 0 && !open && (
           <span className="absolute -top-1 -right-1 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[#7472fd] px-1 text-[11px] font-semibold text-white shadow-sm">
             {liveUnread}

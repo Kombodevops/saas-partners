@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Filter, Send } from 'lucide-react';
+import { Filter, Send, X } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +33,7 @@ export default function ChatsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [cursor, setCursor] = useState<QueryDocumentSnapshot | null>(null);
-  const [filterActivo, setFilterActivo] = useState<'all' | 'active'>('active');
+  const [filterActivo, setFilterActivo] = useState<'active' | 'unread'>('active');
   const [restauranteFilter, setRestauranteFilter] = useState<string>('all');
   const [unreadByChat, setUnreadByChat] = useState<Record<string, number>>({});
   const [detailReservaId, setDetailReservaId] = useState<string | null>(null);
@@ -266,15 +266,16 @@ export default function ChatsPage() {
   const filteredChats = useMemo(() => {
     return chats.filter((chat) => {
       if (filterActivo === 'active' && chat.activo === false) return false;
+      if (
+        filterActivo === 'unread' &&
+        chat.id !== activeChatId &&
+        Number(unreadByChat[chat.id] ?? 0) <= 0
+      )
+        return false;
       if (restauranteFilter !== 'all' && chat.restauranteId !== restauranteFilter) return false;
       return true;
     });
-  }, [chats, filterActivo, restauranteFilter]);
-
-  const totalUnread = useMemo(
-    () => Object.values(unreadByChat).reduce((acc, val) => acc + Number(val || 0), 0),
-    [unreadByChat]
-  );
+  }, [chats, filterActivo, restauranteFilter, unreadByChat, activeChatId]);
 
   const handleSend = async () => {
     if (!activeChatId || !message.trim()) return;
@@ -314,133 +315,139 @@ export default function ChatsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-0 py-0 lg:px-4 lg:py-4">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-4 px-0 py-0 lg:px-0 lg:py-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Chats</p>
-            <h1 className="text-2xl font-semibold text-slate-900">Conversaciones</h1>
-          </div>
-          {totalUnread > 0 && (
-            <span className="rounded-full bg-[#7472fd] px-3 py-1 text-xs font-semibold text-white">
-              {totalUnread} sin leer
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600">
-            <Filter className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-slate-400">Estado</span>
-            <select
-              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
-              value={filterActivo}
-              onChange={(event) => setFilterActivo(event.target.value as 'all' | 'active')}
-            >
-              <option value="all">Todos</option>
-              <option value="active">Activos</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600">
-            <span className="text-slate-400">Restaurante</span>
-            <select
-              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
-              value={restauranteFilter}
-              onChange={(event) => setRestauranteFilter(event.target.value)}
-            >
-              <option value="all">Todos</option>
-              {restaurantes.map((rest) => (
-                <option key={rest.id} value={rest.id}>
-                  {rest.nombreRestaurante || 'Restaurante'}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid gap-4 px-0 lg:px-0 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <Card
-            className="flex flex-col border-none bg-white shadow-sm rounded-none lg:rounded-2xl lg:border lg:border-slate-200"
-          >
-            <CardHeader className="pb-2 px-4 lg:px-6">
-              <CardTitle className="text-base text-slate-900">Chats</CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 pb-0 lg:px-3 lg:pb-3 w-full">
-              <div
-                ref={listRef}
-                className="max-h-[calc(100vh-220px)] overflow-y-auto space-y-0 px-0 pb-3 lg:px-0 lg:pb-0 w-full lg:space-y-2"
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="grid flex-1 min-h-0 gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+        <div className="flex min-h-0 flex-col">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setFilterActivo('active')}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  filterActivo === 'active'
+                    ? 'bg-[#7472fd] text-white hover:bg-[#5b59f4]'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
               >
-                {loading && <p className="text-xs text-slate-500">Cargando chats...</p>}
-                {!loading && filteredChats.length === 0 && (
-                  <p className="text-xs text-slate-500">No hay chats con este filtro.</p>
-                )}
-                {filteredChats.map((chat) => {
-                  const selected = chat.id === activeChatId;
-                  const lastMessage = (chat.ultimoMensaje as { content?: string } | undefined)?.content || '';
-                  const unread = unreadByChat[chat.id] ?? 0;
-                  return (
-                    <button
-                      key={chat.id}
-                      type="button"
-                      onClick={() => setActiveChatId(chat.id)}
-                      className={`w-full rounded-none lg:rounded-xl border border-x-0 lg:border-x border-slate-200 px-4 py-3 text-left transition ${
-                        selected
-                          ? 'lg:border-[#7472fd] bg-[#7472fd]/10'
-                          : 'hover:lg:border-[#7472fd]/40'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{getClienteNombre(chat)}</p>
-                          <p className="text-[11px] text-slate-500">{getRestauranteNombre(chat)}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {unread > 0 && (
-                            <span className="rounded-full bg-[#7472fd] px-2 py-0.5 text-[10px] font-semibold text-white">
-                              {unread}
-                            </span>
-                          )}
-                          <span className={`text-[10px] font-semibold ${chat.activo === false ? 'text-slate-400' : 'text-emerald-600'}`}>
-                            {chat.activo === false ? 'Inactivo' : 'Activo'}
-                          </span>
-                        </div>
-                      </div>
-                      {lastMessage && (
-                        <p className="mt-2 text-[11px] text-slate-600 line-clamp-1">{lastMessage}</p>
+                Activos
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterActivo('unread')}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  filterActivo === 'unread'
+                    ? 'bg-[#7472fd] text-white hover:bg-[#5b59f4]'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Sin leer
+              </button>
+            </div>
+            <div
+              className={`flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-xs text-slate-600 ${
+                restauranteFilter !== 'all' ? 'border-[#7472fd]/60' : 'border-slate-200'
+              }`}
+            >
+              <span className="text-slate-400">Restaurante</span>
+              <select
+                className="cursor-pointer bg-transparent text-xs font-semibold text-slate-700 focus:outline-none"
+                value={restauranteFilter}
+                onChange={(event) => setRestauranteFilter(event.target.value)}
+              >
+                <option value="all">Todos</option>
+                {restaurantes.map((rest) => (
+                  <option key={rest.id} value={rest.id}>
+                    {rest.nombreRestaurante || 'Restaurante'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div
+            ref={listRef}
+            className="mt-3 min-h-0 flex-1 overflow-y-auto space-y-2 pr-1"
+          >
+            {loading && <p className="text-xs text-slate-500">Cargando chats...</p>}
+            {!loading && filteredChats.length === 0 && (
+              <p className="text-xs text-slate-500">No hay chats con este filtro.</p>
+            )}
+            {filteredChats.map((chat) => {
+              const selected = chat.id === activeChatId;
+              const lastMessage = (chat.ultimoMensaje as { content?: string } | undefined)?.content || '';
+              const unread = unreadByChat[chat.id] ?? 0;
+              const isActive = chat.activo !== false;
+              const dateLabel = formatDate(chat.lastMessageAt);
+              const restLabel = getRestauranteNombre(chat);
+              return (
+                <button
+                  key={chat.id}
+                  type="button"
+                  onClick={() => setActiveChatId(chat.id)}
+                  className={`w-full rounded-2xl border bg-white p-4 text-left shadow-sm transition ${
+                    selected
+                      ? 'border-[#7472fd]/60 bg-[#7472fd]/10'
+                      : 'border-slate-200 hover:border-[#7472fd]/40'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">{getClienteNombre(chat)}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-slate-500">{restLabel}</p>
+                      {dateLabel || lastMessage ? (
+                        <p className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-400">
+                          {lastMessage ? (
+                            <span className="min-w-0 flex-1 truncate text-slate-500">{lastMessage}</span>
+                          ) : null}
+                          {dateLabel ? <span className="shrink-0">{dateLabel}</span> : null}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {unread > 0 && (
+                        <span className="rounded-full bg-[#7472fd] px-2 py-0.5 text-[10px] font-semibold text-white">
+                          {unread}
+                        </span>
                       )}
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <p className="text-[10px] text-slate-400">{formatDate(chat.lastMessageAt)}</p>
-                        <Link
-                          href="#"
-                          className="text-[10px] font-semibold text-[#3b3af2] hover:underline"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            if (chat.reservaId) {
-                              setDetailReservaId(chat.reservaId);
-                            }
-                          }}
-                        >
-                          Ver reserva
-                        </Link>
-                      </div>
-                    </button>
-                  );
-                })}
-                {hasMore && <div ref={loaderRef} className="h-6" />}
-                {loadingMore && <p className="text-[11px] text-slate-400">Cargando más...</p>}
-              </div>
-            </CardContent>
-          </Card>
+                      <span
+                        aria-label={isActive ? 'Chat activo' : 'Chat inactivo'}
+                        className={`h-[7px] w-[7px] rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                      />
+                    </div>
+                  </div>
+                  {/* sin acción secundaria aquí */}
+                </button>
+              );
+            })}
+            {hasMore && <div ref={loaderRef} className="h-6" />}
+            {loadingMore && <p className="text-[11px] text-slate-400">Cargando más...</p>}
+          </div>
+        </div>
 
-          {!isMobile && (
-            <Card className="border-none bg-white shadow-sm flex flex-col lg:sticky lg:top-20 lg:h-[calc(100vh-160px)]">
-              <CardHeader className="pb-3 border-b border-slate-100">
-                <CardTitle className="text-base text-slate-900">
-                  {activeChatId ? getClienteNombre(activeChat) : 'Selecciona un chat'}
-                </CardTitle>
-                <p className="text-xs text-slate-500">{getRestauranteNombre(activeChat)}</p>
+        {!isMobile && (
+          <div className="flex min-h-0 flex-col gap-2">
+            <Card className="border-none bg-white shadow-sm lg:rounded-2xl lg:border lg:border-slate-200">
+              <CardHeader className="flex flex-row items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <CardTitle className="truncate text-base text-slate-900">
+                    {activeChatId ? getClienteNombre(activeChat) : 'Selecciona un chat'}
+                  </CardTitle>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{getRestauranteNombre(activeChat)}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {activeChat?.reservaId ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDetailReservaId(activeChat.reservaId ?? null)}
+                    >
+                      Ver reserva
+                    </Button>
+                  ) : null}
+                </div>
               </CardHeader>
+            </Card>
+
+            <Card className="flex min-h-0 flex-1 flex-col border-none bg-white shadow-sm lg:rounded-2xl lg:border lg:border-slate-200">
               <CardContent className="flex flex-1 flex-col p-0 min-h-0">
                 {!activeChatId ? (
                   <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
@@ -453,21 +460,14 @@ export default function ChatsPage() {
                       className="flex-1 overflow-y-auto p-4 space-y-2"
                       onScroll={(event) => {
                         const target = event.currentTarget;
-                        if (
-                          target.scrollTop < 80 &&
-                          !loadingMessagesRef.current &&
-                          !suppressLoadMoreRef.current
-                        ) {
+                        if (target.scrollTop < 80 && !loadingMessagesRef.current && !suppressLoadMoreRef.current) {
                           void loadMoreMessages();
                         }
-                        const atBottom =
-                          target.scrollHeight - target.scrollTop - target.clientHeight < 40;
+                        const atBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 40;
                         isAtBottomRef.current = atBottom;
                       }}
                     >
-                      {messages.length === 0 && (
-                        <div className="text-xs text-slate-500">No hay mensajes aún.</div>
-                      )}
+                      {messages.length === 0 && <div className="text-xs text-slate-500">No hay mensajes aún.</div>}
                       {messages.map((msg) => {
                         const content = msg.content || msg.texto || msg.message || '';
                         const senderId = msg.sender?.id || msg.senderId || '';
@@ -476,9 +476,7 @@ export default function ChatsPage() {
                           <div key={msg.id} className={`flex ${isPartner ? 'justify-end' : 'justify-start'}`}>
                             <div
                               className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                                isPartner
-                                  ? 'bg-[#7472fd] text-white'
-                                  : 'bg-slate-100 text-slate-700'
+                                isPartner ? 'bg-[#7472fd] text-white' : 'bg-slate-100 text-slate-700'
                               }`}
                             >
                               {content}
@@ -516,8 +514,8 @@ export default function ChatsPage() {
                 )}
               </CardContent>
             </Card>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       {isMobile && activeChatId && (
         <div className="fixed inset-0 z-50 bg-white">
@@ -529,13 +527,13 @@ export default function ChatsPage() {
               </div>
               <button
                 type="button"
-                className="rounded-full border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600"
                 onClick={() => {
                   setActiveChatId(null);
                   setActiveChat(null);
                 }}
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
             <div
@@ -612,16 +610,33 @@ export default function ChatsPage() {
       >
         <SheetContent
           side="right"
-          className="!right-0 !w-auto !max-w-none p-0 data-[state=open]:duration-0 data-[state=closed]:duration-0 data-[state=open]:animate-none data-[state=closed]:animate-none"
+          className="!right-0 !w-auto !max-w-none overflow-hidden p-0 data-[state=open]:duration-0 data-[state=closed]:duration-0 data-[state=open]:animate-none data-[state=closed]:animate-none"
           style={{ left: 0, right: 0, width: 'auto' }}
           showCloseButton={false}
         >
           <SheetTitle className="sr-only">Detalle de reserva</SheetTitle>
-          <ReservaDetalleContent
-            reservaId={detailReservaId}
-            variant="panel"
-            onClose={() => setDetailReservaId(null)}
-          />
+          <div className="flex h-full w-full">
+            <div id="reserva-detail-left-col" className="min-w-0 flex-1 overflow-hidden">
+              <ReservaDetalleContent
+                reservaId={detailReservaId}
+                variant="panel"
+                onClose={() => setDetailReservaId(null)}
+              />
+            </div>
+            <div
+              aria-label="Panel lateral"
+              className="hidden h-full w-[340px] shrink-0 overflow-hidden border-l border-slate-200 bg-slate-100 lg:flex lg:flex-col xl:w-[380px] 2xl:w-[420px]"
+            >
+              <div className="flex h-16 items-end border-b border-slate-200/70 bg-slate-100 px-6 pb-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Pagos y asistentes
+                </p>
+              </div>
+              <div className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-4">
+                <div id="reserva-detail-right-rail" className="space-y-4" />
+              </div>
+            </div>
+          </div>
         </SheetContent>
       </Sheet>
     </div>

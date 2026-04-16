@@ -234,7 +234,7 @@ export class ReservaCreateService {
       try {
         const token = await auth.currentUser?.getIdToken();
         if (token) {
-          await fetch(RESEND_ENDPOINT, {
+          void fetch(RESEND_ENDPOINT, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -247,7 +247,7 @@ export class ReservaCreateService {
                 isApp: false,
               },
             }),
-          });
+          }).catch((error) => console.error('[reservaCreate] email failed', error));
         }
       } catch (error) {
         console.error('[reservaCreate] email failed', error);

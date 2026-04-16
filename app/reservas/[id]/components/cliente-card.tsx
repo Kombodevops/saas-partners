@@ -40,11 +40,37 @@ export function ClienteCard({
   };
 
   return (
-    <Card className="border-none bg-white shadow-sm">
-      <CardHeader>
+    <Card className="gap-2 border-none bg-white p-4 shadow-sm">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 p-0">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Cliente</p>
+        {manageUrl ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onSendEmail}
+              className="gap-2"
+              disabled={!email || !onSendEmail || sendingEmail}
+            >
+              <Send className="h-4 w-4" />
+              {sendingEmail ? 'Enviando...' : email ? 'Enviar recordatorio' : 'Email no disponible'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleCopy}
+              className="gap-2"
+              disabled={!manageUrl}
+            >
+              <Copy className="h-4 w-4" />
+              {copied ? 'Copiado' : 'Copiar enlace'}
+            </Button>
+          </div>
+        ) : null}
       </CardHeader>
-      <CardContent className="space-y-3 text-sm text-slate-600">
+      <CardContent className="space-y-2 p-0 text-sm text-slate-600">
         <p className="text-sm font-semibold text-slate-900">{nombre || 'Cliente sin nombre'}</p>
         {showContact && email && (
           <div className="flex items-center gap-2">
@@ -59,32 +85,9 @@ export function ClienteCard({
           </div>
         )}
         {manageUrl && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Compartir enlace</p>
-            <p className="mt-2 break-all text-xs text-slate-600">{manageUrl}</p>
-            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onSendEmail}
-                className="gap-2"
-                disabled={!email || !onSendEmail || sendingEmail}
-              >
-                <Send className="h-4 w-4" />
-                  {sendingEmail ? 'Enviando...' : email ? 'Enviar recordatorio' : 'Email no disponible'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCopy}
-                className="gap-2"
-              >
-                <Copy className="h-4 w-4" />
-                {copied ? 'Copiado' : 'Copiar enlace'}
-              </Button>
-            </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Enlace para el cliente</p>
+            <p className="mt-1 break-all text-xs text-slate-600">{manageUrl}</p>
           </div>
         )}
       </CardContent>

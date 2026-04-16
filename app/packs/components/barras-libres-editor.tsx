@@ -32,6 +32,38 @@ interface BarrasLibresEditorProps {
 
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
+const parseToMinutes = (value: string) => {
+  const text = value.toLowerCase();
+  const hoursMatch = text.match(/(\d+)\s*h/);
+  const minsMatch = text.match(/(\d+)\s*min/);
+  const hours = hoursMatch ? Number(hoursMatch[1]) : 0;
+  const mins = minsMatch ? Number(minsMatch[1]) : 0;
+  return hours * 60 + mins;
+};
+
+const toDurationLabel = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours > 0 && mins > 0) return `${hours}h ${mins}min`;
+  if (hours > 0) return `${hours} horas`;
+  return `${mins}min`;
+};
+
+const buildDurationSteps = (minLabel: string, maxLabel: string) => {
+  const min = parseToMinutes(minLabel);
+  const max = parseToMinutes(maxLabel);
+  if (!min || !max || max < min) return [] as string[];
+  const values: string[] = [];
+  for (let current = min; current <= max; current += 15) {
+    values.push(toDurationLabel(current));
+  }
+  return values;
+};
+
+const DURATION_MIN = '15min';
+const DURATION_MAX = '24h';
+const DURATION_OPTIONS = buildDurationSteps(DURATION_MIN, DURATION_MAX);
+
 export function BarrasLibresEditor({
   barras,
   onSave,
@@ -669,7 +701,25 @@ export function BarrasLibresEditor({
                                   <FormItem>
                                     <FormLabel>Duración</FormLabel>
                                     <FormControl>
-                                      <Input {...field} value={field.value ?? ''} />
+                                      <select
+                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                                        value={String(field.value ?? '')}
+                                        onChange={(event) => field.onChange(event.target.value)}
+                                        onBlur={field.onBlur}
+                                      >
+                                        <option value="">Selecciona una duración</option>
+                                        {String(field.value ?? '').trim() &&
+                                        !DURATION_OPTIONS.includes(String(field.value ?? '').trim()) ? (
+                                          <option value={String(field.value ?? '').trim()}>
+                                            {String(field.value ?? '').trim()}
+                                          </option>
+                                        ) : null}
+                                        {DURATION_OPTIONS.map((value) => (
+                                          <option key={`dur-${value}`} value={value}>
+                                            {value}
+                                          </option>
+                                        ))}
+                                      </select>
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
@@ -1230,7 +1280,25 @@ export function BarrasLibresEditor({
                                   <FormItem>
                                     <FormLabel>Duración</FormLabel>
                                     <FormControl>
-                                      <Input {...field} value={field.value ?? ''} placeholder="Ej: 3h 15min" />
+                                      <select
+                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                                        value={String(field.value ?? '')}
+                                        onChange={(event) => field.onChange(event.target.value)}
+                                        onBlur={field.onBlur}
+                                      >
+                                        <option value="">Selecciona una duración</option>
+                                        {String(field.value ?? '').trim() &&
+                                        !DURATION_OPTIONS.includes(String(field.value ?? '').trim()) ? (
+                                          <option value={String(field.value ?? '').trim()}>
+                                            {String(field.value ?? '').trim()}
+                                          </option>
+                                        ) : null}
+                                        {DURATION_OPTIONS.map((value) => (
+                                          <option key={`dur-bottom-${value}`} value={value}>
+                                            {value}
+                                          </option>
+                                        ))}
+                                      </select>
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>

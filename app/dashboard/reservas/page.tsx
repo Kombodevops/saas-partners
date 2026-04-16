@@ -2846,7 +2846,7 @@ export default function ReservasDashboardPage() {
       >
         <SheetContent
           side="right"
-          className="!right-0 !w-auto !max-w-none p-0 data-[state=open]:duration-0 data-[state=closed]:duration-0 data-[state=open]:animate-none data-[state=closed]:animate-none"
+          className="!right-0 !w-auto !max-w-none overflow-hidden p-0 data-[state=open]:duration-0 data-[state=closed]:duration-0 data-[state=open]:animate-none data-[state=closed]:animate-none"
           style={{
             left: 0,
             right: 0,
@@ -2855,15 +2855,32 @@ export default function ReservasDashboardPage() {
           showCloseButton={false}
         >
           <SheetTitle className="sr-only">Detalle de reserva</SheetTitle>
-          <ReservaDetalleContent
-            reservaId={detailReservaId}
-            variant="panel"
-            onClose={() => {
-              const currentId = detailReservaId;
-              setDetailReservaId(null);
-              void refreshReservaById(currentId);
-            }}
-          />
+          <div className="flex h-full w-full">
+            <div id="reserva-detail-left-col" className="min-w-0 flex-1 overflow-hidden">
+              <ReservaDetalleContent
+                reservaId={detailReservaId}
+                variant="panel"
+                onClose={() => {
+                  const currentId = detailReservaId;
+                  setDetailReservaId(null);
+                  void refreshReservaById(currentId);
+                }}
+              />
+            </div>
+            <div
+              aria-label="Panel lateral"
+              className="hidden h-full w-[340px] shrink-0 overflow-hidden border-l border-slate-200 bg-slate-100 lg:flex lg:flex-col xl:w-[380px] 2xl:w-[420px]"
+            >
+              <div className="flex h-16 items-end border-b border-slate-200/70 bg-slate-100 px-6 pb-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Pagos y asistentes
+                </p>
+              </div>
+              <div className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-4">
+                <div id="reserva-detail-right-rail" className="space-y-4" />
+              </div>
+            </div>
+          </div>
         </SheetContent>
       </Sheet>
 

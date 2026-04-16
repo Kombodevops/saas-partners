@@ -62,16 +62,16 @@ export function NotasEtiquetasCard({ reservaId, notasRaw, etiquetasRaw, onReload
   };
 
   return (
-    <Card className="border-none bg-white shadow-sm">
-      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <Card className="gap-4 border-none bg-white p-4 shadow-sm">
+      <CardHeader className="flex flex-col gap-3 p-0 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Notas</p>
-          <CardTitle className="text-base text-slate-900">Notas y etiquetas</CardTitle>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Notas y etiquetas internas</p>
+          <CardTitle className="sr-only">Notas y etiquetas</CardTitle>
           <p className="text-sm text-slate-500">Organiza la reserva con notas internas y etiquetas rápidas.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2" />
       </CardHeader>
-      <CardContent className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <CardContent className="grid gap-4 p-0 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <StickyNote className="h-4 w-4" />

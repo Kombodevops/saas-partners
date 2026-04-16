@@ -25,6 +25,38 @@ type RechazarReservaPayload = {
 };
 
 export class ReservaActionsService {
+  private static stripUndefinedDeep(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => this.stripUndefinedDeep(item))
+        .filter((item) => item !== undefined);
+    }
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const next: Record<string, unknown> = {};
+      Object.keys(record).forEach((key) => {
+        const v = record[key];
+        if (v === undefined) return;
+        next[key] = this.stripUndefinedDeep(v);
+      });
+      return next;
+    }
+    return value;
+  }
+
+  private static findUndefinedPaths(value: unknown, prefix = ''): string[] {
+    if (value === undefined) return [prefix || '<root>'];
+    if (Array.isArray(value)) {
+      return value.flatMap((item, idx) => this.findUndefinedPaths(item, `${prefix}[${idx}]`));
+    }
+    if (value && typeof value === 'object') {
+      return Object.entries(value as Record<string, unknown>).flatMap(([key, v]) =>
+        this.findUndefinedPaths(v, prefix ? `${prefix}.${key}` : key)
+      );
+    }
+    return [];
+  }
+
   private static getString(value: unknown): string {
     return typeof value === 'string' ? value : '';
   }
@@ -43,7 +75,7 @@ export class ReservaActionsService {
       const isApp = Boolean(usuario?.isApp);
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
-      const res = await fetch(RESEND_ENDPOINT, {
+      void fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,9 +88,7 @@ export class ReservaActionsService {
             isApp,
           },
         }),
-      });
-      const json = await res.json();
-      console.log(json);
+      }).catch((error) => console.error('[enviarEmailReserva] failed', error));
     } catch (error) {
       console.error('[enviarEmailReserva] failed', error);
     }
@@ -95,7 +125,17 @@ export class ReservaActionsService {
     if (questions && questions.length > 0) {
       payload.questions = questions;
     }
-    await updateDoc(ref, payload);
+    const cleanedPayload = this.stripUndefinedDeep(payload) as Record<string, unknown>;
+    const undefinedPaths = this.findUndefinedPaths(cleanedPayload);
+    if (undefinedPaths.length > 0) {
+      console.error('[aceptarReserva] payload contains undefined', { reservaId, undefinedPaths });
+    }
+    try {
+      await updateDoc(ref, cleanedPayload);
+    } catch (error) {
+      console.error('[aceptarReserva] updateDoc failed', { reservaId, error });
+      throw error;
+    }
     void this.enviarEmailReserva(reservaId, 'cliente_pendiente_confirmacion_24h');
   }
 

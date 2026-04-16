@@ -63,6 +63,8 @@ export default function DashboardPage() {
     return days.map((day) => ({ ...day, count: counts[day.key] ?? 0, items: details[day.key] ?? [] }));
   }, [weekReservas]);
 
+  const maxHeatCount = useMemo(() => heatDays.reduce((max, day) => Math.max(max, day.count), 0), [heatDays]);
+
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -189,35 +191,45 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-slate-100 p-4">
-                  <div className="grid grid-cols-7 gap-2">
+                  <div className="flex items-end gap-2">
                     {heatDays.map((day) => {
                       const isActive = activeWeekDay === day.key;
+                      const minHeight = 14;
+                      const maxHeight = 40;
+                      const ratio = maxHeatCount > 0 ? day.count / maxHeatCount : 0;
+                      const height = Math.round(minHeight + ratio * (maxHeight - minHeight));
                       return (
                       <button
                         key={day.key}
                         type="button"
                         onClick={() => setActiveWeekDay(isActive ? null : day.key)}
-                        className="group relative flex flex-col items-center gap-1"
+                        aria-pressed={isActive}
+                        aria-label={`${day.label}: ${day.count} reservas`}
+                        className="group relative flex flex-1 items-end"
                       >
                         <div
-                          className={`h-10 w-4 rounded-full ${
-                            day.count >= 3
-                              ? 'bg-[#4f46e5]'
-                              : day.count === 2
-                                ? 'bg-[#7472fd]'
-                                : day.count === 1
-                                  ? 'bg-[#7472fd]/45'
-                                  : 'bg-slate-100'
-                          }`}
+                          style={{ height }}
+                          className={`w-full rounded-lg transition-colors ${
+                            isActive
+                              ? 'bg-slate-900'
+                              : day.count >= 3
+                                ? 'bg-[#7472fd]/30'
+                                : day.count === 2
+                                  ? 'bg-[#7472fd]/20'
+                                  : day.count === 1
+                                    ? 'bg-[#7472fd]/12'
+                                    : 'bg-slate-100'
+                          } ${isActive ? '' : 'hover:bg-[#7472fd]/18'}`}
                         />
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                          {day.label}
-                        </span>
                         <div
                           className={`pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-48 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 text-[11px] text-slate-600 shadow-sm transition-opacity duration-150 ${
                             isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                           }`}
                         >
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <span className="font-semibold text-slate-800">{day.label}</span>
+                            <span className="text-slate-500">{day.count} reservas</span>
+                          </div>
                           {day.count > 0 ? (
                             <div className="space-y-1">
                               {day.items.map((item, idx) => (

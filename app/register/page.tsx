@@ -66,7 +66,7 @@ export default function RegisterPage() {
       if (RESEND_ENDPOINT) {
         const token = await auth.currentUser?.getIdToken();
         if (token) {
-          await fetch(RESEND_ENDPOINT, {
+          void fetch(RESEND_ENDPOINT, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -77,7 +77,7 @@ export default function RegisterPage() {
               to: data.email,
               extra: { ...data },
             }),
-          });
+          }).catch((error) => console.error('[register] email failed', error));
         }
       }
       setShowSuccess(true);

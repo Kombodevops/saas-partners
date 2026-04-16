@@ -34,6 +34,8 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
   const [anticipoDescripcion, setAnticipoDescripcion] = useState('');
   const [anticipoPrecio, setAnticipoPrecio] = useState('');
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
+  const [questionErrors, setQuestionErrors] = useState<Record<string, { question?: string; options?: string }>>({});
+  const [acceptTouched, setAcceptTouched] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -112,9 +114,59 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
 
   const removeQuestion = (id: string) => {
     setQuestions((prev) => prev.filter((item) => item.id !== id));
+    setQuestionErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
+  const validateQuestions = (items: QuestionItem[]) => {
+    const errors: Record<string, { question?: string; options?: string }> = {};
+    for (const item of items) {
+      if (!item.question.trim()) {
+        errors[item.id] = { ...(errors[item.id] ?? {}), question: 'Escribe la pregunta.' };
+      }
+      if (item.question_type === 'choice') {
+        const options = (item.options ?? []).filter((opt) => opt.trim());
+        if (options.length < 2) {
+          errors[item.id] = { ...(errors[item.id] ?? {}), options: 'Añade al menos 2 opciones.' };
+        }
+        if ((item.optionDraft ?? '').trim()) {
+          errors[item.id] = {
+            ...(errors[item.id] ?? {}),
+            options: 'Tienes una opción sin añadir. Pulsa “Añadir” o borra el texto.',
+          };
+        }
+      }
+    }
+    return { ok: Object.keys(errors).length === 0, errors };
+  };
+
+  const canAccept = useMemo(() => {
+    if (!fechaLimite) return false;
+    if (fechaLimite < today) return false;
+    if (fechaPlan && fechaLimite > fechaPlan) return false;
+    if (requiresFlexibleChoice && solicitarAnticipo) {
+      if (!anticipoDescripcion.trim()) return false;
+      const anticipoValue = Number(anticipoPrecio);
+      if (!Number.isFinite(anticipoValue) || anticipoValue < 2) return false;
+    }
+    const validation = validateQuestions(questions);
+    return validation.ok;
+  }, [
+    fechaLimite,
+    today,
+    fechaPlan,
+    requiresFlexibleChoice,
+    solicitarAnticipo,
+    anticipoDescripcion,
+    anticipoPrecio,
+    questions,
+  ]);
+
   const onAceptar = async () => {
+    setAcceptTouched(true);
     if (!fechaLimite) return;
     if (fechaLimite < today) return;
     if (fechaPlan && fechaLimite > fechaPlan) return;
@@ -123,17 +175,20 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
       const anticipoValue = Number(anticipoPrecio);
       if (!Number.isFinite(anticipoValue) || anticipoValue < 2) return;
     }
+    const validation = validateQuestions(questions);
+    setQuestionErrors(validation.errors);
+    if (!validation.ok) return;
     setSaving(true);
     try {
-      const cleanedQuestions = questions
-        .filter((item) => item.question.trim())
-        .filter((item) => (item.question_type === 'choice' ? (item.options ?? []).length >= 2 : true))
-        .map(({ question, question_type, required, options }) => ({
+      const cleanedQuestions = questions.map(({ question, question_type, required, options }) => {
+        const base = {
           question: question.trim(),
           question_type,
           required,
-          options: question_type === 'choice' ? options ?? [] : undefined,
-        }));
+        };
+        if (question_type !== 'choice') return base;
+        return { ...base, options: (options ?? []).filter((opt) => opt.trim()) };
+      });
 
       const payload: Parameters<typeof ReservaActionsService.aceptarReserva>[0] = {
         reservaId: reserva.id,
@@ -153,6 +208,8 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
       }
       await ReservaActionsService.aceptarReserva(payload);
       setOpenAccept(false);
+      setAcceptTouched(false);
+      setQuestionErrors({});
       onCompleted?.();
     } finally {
       setSaving(false);
@@ -266,9 +323,6 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
             <div>
               <div className="flex items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-700">Preguntas para el cliente (opcional)</label>
-                <Button type="button" variant="outline" onClick={addQuestion}>
-                  Añadir pregunta
-                </Button>
               </div>
 
               {questions.length > 0 && (
@@ -293,6 +347,9 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
                             onChange={(event) => updateQuestion(item.id, { question: event.target.value })}
                             placeholder="Ej: ¿Qué quieres de primer plato?"
                           />
+                          {acceptTouched && questionErrors[item.id]?.question ? (
+                            <p className="mt-1 text-xs text-rose-600">{questionErrors[item.id]?.question}</p>
+                          ) : null}
                         </div>
                         <div>
                           <label className="text-xs font-medium text-slate-600">Tipo de pregunta</label>
@@ -350,12 +407,20 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
                           {item.options && item.options.length > 0 && item.options.length < 2 && (
                             <p className="text-xs text-amber-600">Añade al menos 2 opciones.</p>
                           )}
+                          {acceptTouched && questionErrors[item.id]?.options ? (
+                            <p className="mt-1 text-xs text-rose-600">{questionErrors[item.id]?.options}</p>
+                          ) : null}
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
+              <div className="mt-3 flex justify-end">
+                <Button type="button" variant="outline" onClick={addQuestion}>
+                  Añadir pregunta
+                </Button>
+              </div>
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-2">
@@ -365,7 +430,7 @@ export function PendienteActionsDialog({ reserva, onCompleted, size = 'sm' }: Pr
             <Button
               className="bg-emerald-500 text-white hover:bg-emerald-500"
               onClick={onAceptar}
-              disabled={saving || !fechaLimite}
+              disabled={saving || !canAccept}
             >
               {saving ? 'Guardando...' : 'Aceptar'}
             </Button>

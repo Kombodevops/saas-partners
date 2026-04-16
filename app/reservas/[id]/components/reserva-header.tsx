@@ -1,8 +1,9 @@
 'use client';
 
-import { Calendar, Clock, User, Package, Pencil, Home, DoorOpen, UserCheck } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { AlertCircle, Calendar, Clock, Copy, Mail, Pencil, Phone, Send, User } from 'lucide-react';
+import { useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import type { ReservaDetalle } from '@/lib/services/reserva-detalle.service';
 
 const formatDate = (value?: string) => {
@@ -112,19 +113,24 @@ const getStatusBadge = (reserva: ReservaDetalle) => {
 
 export function ReservaHeader({
   reserva,
-  showClienteContact = true,
-  onChangeLocal,
-  onChangeEspacio,
   onEditEvento,
   originBadge,
+  clienteEmail,
+  clienteTelefono,
+  manageUrl,
+  onSendEmail,
+  sendingEmail,
 }: {
   reserva: ReservaDetalle;
-  showClienteContact?: boolean;
-  onChangeLocal?: () => void;
-  onChangeEspacio?: () => void;
   onEditEvento?: () => void;
   originBadge?: { label: string; className: string; style?: CSSProperties };
+  clienteEmail?: string | null;
+  clienteTelefono?: string | null;
+  manageUrl?: string | null;
+  onSendEmail?: () => void;
+  sendingEmail?: boolean;
 }) {
+  const [copied, setCopied] = useState(false);
   const estadoBadge = getStatusBadge(reserva);
   const originFallback =
     typeof reserva.leadKomvo === 'boolean'
@@ -140,9 +146,14 @@ export function ReservaHeader({
   const horaInicio = reserva.kombo?.Hora || '--:--';
   const horaFin = reserva.kombo?.horaFin || '';
   const fecha = reserva.kombo?.Fecha || '';
-  const responsableNombre =
-    (reserva as { responsableEquipo?: { nombre?: string } | null })?.responsableEquipo?.nombre || '';
   const komboRecord = reserva.kombo as Record<string, unknown> | undefined;
+  const komboDescripcionRaw =
+    (komboRecord?.['Descripción'] as unknown) ??
+    (komboRecord?.Descripción as unknown) ??
+    (komboRecord?.['Descripcion'] as unknown) ??
+    (komboRecord?.Descripcion as unknown);
+  const komboDescripcion =
+    typeof komboDescripcionRaw === 'string' && komboDescripcionRaw.trim() ? komboDescripcionRaw.trim() : null;
   const reservaRecord = reserva as Record<string, unknown>;
   const groupSizeCandidates = [
     'Tamaño del grupo',
@@ -189,117 +200,133 @@ export function ReservaHeader({
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card className="border-none bg-white p-4 shadow-sm">
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between gap-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Reserva</p>
-            <h1 className="text-2xl font-semibold text-slate-900">
-              {reserva.usuario?.['Nombre de usuario'] || 'Cliente sin nombre'}
-            </h1>
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${estadoBadge.className}`}>
+                {estadoBadge.label}
+              </span>
+              {onEditEvento ? (
+                <Button
+                  type="button"
+                  onClick={onEditEvento}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-slate-200 text-slate-900 hover:bg-slate-50"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar reserva
+                </Button>
+              ) : null}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${estadoBadge.className}`}>
-              {estadoBadge.label}
-            </span>
-            <span
-              className={`rounded-full border px-3 py-1 text-sm font-semibold ${originPayload.className}`}
-              style={originPayload.style}
-            >
-              {originPayload.label}
-            </span>
-          </div>
-        </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-500">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="flex items-center gap-2">
-              <Calendar className="h-3.5 w-3.5" />
-              {formatDate(fecha)}
-            </span>
+          <h1 className="mt-1 text-2xl font-semibold text-slate-900">
+            {reserva.usuario?.['Nombre de usuario'] || 'Cliente sin nombre'}
+          </h1>
+
+	          <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-slate-500">
+	            <span className="flex items-center gap-2">
+	              <Calendar className="h-3.5 w-3.5" />
+	              {formatDate(fecha)}
+	            </span>
             <span className="flex items-center gap-2">
               <Clock className="h-3.5 w-3.5" />
               {horaInicio}
               {horaFin && horaFin !== horaInicio ? ` - ${horaFin}` : ''}
             </span>
-            <span className="flex items-center gap-2">
-              <User className="h-3.5 w-3.5" />
-              Aforo solicitado: {formatRange(aforoMin, aforoMax)}
-            </span>
-            <span className="flex items-center gap-2">
-              <UserCheck className="h-3.5 w-3.5" />
-              {responsableNombre ? `Responsable: ${responsableNombre}` : 'Equipo sin asignar'}
-            </span>
-          </div>
-          {onEditEvento && (
-            <div className="flex w-full justify-end sm:w-auto sm:ml-auto">
-              <Button
-                type="button"
-                onClick={onEditEvento}
-                variant="outline"
-                size="sm"
-                className="gap-2 border-slate-200 text-slate-900 hover:bg-slate-50"
-              >
-                <Pencil className="h-4 w-4" />
-                Editar reserva
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+	            <span className="flex items-center gap-2">
+	              <User className="h-3.5 w-3.5" />
+	              Aforo solicitado: {formatRange(aforoMin, aforoMax)}
+	            </span>
+	          </div>
+	          {komboDescripcion ? (
+	            <div className="mt-3 flex items-start gap-2 text-sm text-slate-600">
+	              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
+	              <div className="min-w-0">
+	                <span className="font-medium text-slate-500">Info adicional:</span>{' '}
+	                <span className="break-words">{komboDescripcion}</span>{' '}
+	                <button
+	                  type="button"
+	                  className="ml-2 inline-flex shrink-0 items-center font-semibold text-[#7472FD] hover:text-[#5f5bf2]"
+	                  onClick={() => window.dispatchEvent(new CustomEvent('komvo:open-chat'))}
+	                >
+	                  Responder
+	                </button>
+	              </div>
+	            </div>
+	          ) : null}
+	        </CardContent>
+	      </Card>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Local</p>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="text-lg font-semibold text-slate-900">
-              {reserva.restaurante?.['Nombre del restaurante'] || 'Restaurante'}
-            </p>
-            <Button
-              type="button"
-              onClick={onChangeLocal}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <Home className="h-4 w-4" />
-              Cambiar local
-            </Button>
+      <Card className="border-none bg-white p-4 shadow-sm">
+        <CardContent className="p-0">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Cliente</p>
+            {manageUrl ? (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onSendEmail}
+                  className="h-7 gap-2 px-3"
+                  disabled={!clienteEmail || !onSendEmail || sendingEmail}
+                >
+                  <Send className="h-4 w-4" />
+                  {sendingEmail ? 'Enviando...' : clienteEmail ? 'Enviar recordatorio' : 'Email no disponible'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-2 px-3"
+                  disabled={!manageUrl}
+                  onClick={async () => {
+                    if (!manageUrl) return;
+                    try {
+                      await navigator.clipboard.writeText(manageUrl);
+                      setCopied(true);
+                      window.setTimeout(() => setCopied(false), 1500);
+                    } catch {
+                      setCopied(false);
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                  {copied ? 'Copiado' : 'Copiar enlace'}
+                </Button>
+              </div>
+            ) : null}
           </div>
-        </div>
 
-        <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Espacio</p>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                {(reserva.sala as { nombre?: string } | null | undefined)?.nombre || 'Sin sala asignada'}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Aforo:{' '}
-                {((reserva.sala as { aforoMinimo?: number | null } | null | undefined)?.aforoMinimo ?? null) !== null
-                  ? (reserva.sala as { aforoMinimo?: number | null } | null | undefined)?.aforoMinimo
-                  : '—'}{' '}
-                -{' '}
-                {((reserva.sala as { aforoMaximo?: number | null } | null | undefined)?.aforoMaximo ?? null) !== null
-                  ? (reserva.sala as { aforoMaximo?: number | null } | null | undefined)?.aforoMaximo
-                  : '—'}
-                {' '}pax
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={onChangeEspacio}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <DoorOpen className="h-4 w-4" />
-              Cambiar espacio
-            </Button>
+          <div className="mt-3 space-y-2 text-sm text-slate-600">
+            {clienteEmail ? (
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-slate-400" />
+                <span className="truncate">{clienteEmail}</span>
+              </div>
+            ) : null}
+            {clienteTelefono ? (
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-slate-400" />
+                <span className="truncate">{clienteTelefono}</span>
+              </div>
+            ) : null}
+            {manageUrl ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Enlace para el cliente
+                </p>
+                <p className="mt-1 break-all text-xs text-slate-600">{manageUrl}</p>
+              </div>
+            ) : null}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

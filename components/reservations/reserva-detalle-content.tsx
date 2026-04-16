@@ -26,16 +26,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { PendienteActionsDialog } from '@/app/dashboard/reservas/components/pendiente-actions-dialog';
-import { Calendar as CalendarIcon, Copy, Package as PackageIcon } from 'lucide-react';
+import { ArrowLeft, Calendar as CalendarIcon, Copy, Package as PackageIcon, Lock, Eye, Home, DoorOpen, UserCheck, Tag } from 'lucide-react';
 import {
   ReservaDetalleService,
   type ReservaDetalle,
   type AsistenciaDetalle,
   type FacturaDetalle,
+  type CambioReserva,
 } from '@/lib/services/reserva-detalle.service';
 import { ReservaHeader } from '@/app/reservas/[id]/components/reserva-header';
 import { NotasEtiquetasCard } from '@/app/reservas/[id]/components/notas-etiquetas-card';
-import { ClienteCard } from '@/app/reservas/[id]/components/cliente-card';
 import { AsistentesCard } from '@/app/reservas/[id]/components/asistentes-card';
 import { FacturasCard } from '@/app/reservas/[id]/components/facturas-card';
 import { ChatCard } from '@/app/reservas/[id]/components/chat-card';
@@ -75,6 +75,84 @@ type ServicioPagado = {
   tipoCompra?: string;
 };
 
+const getTiempoSolicitadoLabel = (value: Record<string, unknown> | undefined): string | null => {
+  if (!value) return null;
+  const directCandidates = [
+    value.tiempoSolicitado,
+    value.TiempoSolicitado,
+    value['Tiempo solicitado'],
+    value.tiempo_solicitado,
+    value.horasSolicitadas,
+    value.HorasSolicitadas,
+    value['Horas solicitadas'],
+  ];
+  for (const candidate of directCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  const intervalo = (value.intervaloSeleccionado as Record<string, unknown> | undefined) ?? undefined;
+  if (intervalo) {
+    const duracion = intervalo.duracionMin ?? intervalo['duraciónMin'];
+    if (typeof duracion === 'string' && duracion.trim()) return duracion.trim();
+    if (typeof duracion === 'number' && Number.isFinite(duracion)) return String(duracion);
+  }
+  return null;
+};
+
+const toPaxValue = (value?: string | number | null) => {
+  if (value == null) return null;
+  const normalized = typeof value === 'string' ? value.trim().replace(',', '.') : value;
+  if (normalized === '') return null;
+  const parsed = Number(normalized);
+  return Number.isNaN(parsed) ? String(value) : String(parsed);
+};
+
+const formatPaxRange = (min?: string | number | null, max?: string | number | null) => {
+  const minValue = toPaxValue(min);
+  const maxValue = toPaxValue(max);
+  if (minValue && maxValue) return `${minValue} - ${maxValue} pax`;
+  if (minValue) return `${minValue} pax`;
+  if (maxValue) return `${maxValue} pax`;
+  return '—';
+};
+
+const formatPrecioVal = (val: unknown): string => {
+  if (val == null || val === '') return '—';
+  const n = Number(val);
+  if (!Number.isNaN(n)) return `${n.toFixed(2)} €`;
+  return String(val);
+};
+
+const getAforoSolicitadoLabel = (reserva: ReservaDetalle | null) => {
+  if (!reserva) return null;
+  const komboRecord = reserva.kombo as Record<string, unknown> | undefined;
+  const reservaRecord = reserva as Record<string, unknown>;
+  const groupSizeCandidates = [
+    'Tamaño del grupo',
+    'Tamaño del grupo ',
+    'Tamaño del grupo  ',
+    'Tamaño del grupo:',
+    'Tamaño del grupo :',
+    'Tamaño del grupo  :',
+    'Tamaño del grupo ',
+  ];
+  const groupSize =
+    groupSizeCandidates
+      .map((key) => komboRecord?.[key] as Record<string, unknown> | undefined)
+      .concat(groupSizeCandidates.map((key) => reservaRecord?.[key] as Record<string, unknown> | undefined))
+      .find(Boolean) ?? undefined;
+  const aforoMin =
+    (groupSize?.min as string | number | null | undefined) ??
+    (groupSize?.Min as string | number | null | undefined) ??
+    (groupSize?.minimo as string | number | null | undefined) ??
+    (groupSize?.Minimo as string | number | null | undefined);
+  const aforoMax =
+    (groupSize?.max as string | number | null | undefined) ??
+    (groupSize?.Max as string | number | null | undefined) ??
+    (groupSize?.maximo as string | number | null | undefined) ??
+    (groupSize?.Maximo as string | number | null | undefined);
+  return formatPaxRange(aforoMin, aforoMax);
+};
+
 export function ReservaDetalleContent({
   reservaId,
   variant = 'page',
@@ -96,13 +174,15 @@ export function ReservaDetalleContent({
     talvez: 0,
     noAsisten: 0,
   });
-  const [facturas, setFacturas] = useState<FacturaDetalle[]>([]);
-  const [facturasAll, setFacturasAll] = useState<FacturaDetalle[]>([]);
-  const [showPackEditReason, setShowPackEditReason] = useState(false);
-  const [customSalaLocalEnabled, setCustomSalaLocalEnabled] = useState(false);
-  const [customSalaLocalNombre, setCustomSalaLocalNombre] = useState('');
-  const [customSalaLocalAforoMin, setCustomSalaLocalAforoMin] = useState<number | ''>('');
-  const [customSalaLocalAforoMax, setCustomSalaLocalAforoMax] = useState<number | ''>('');
+	  const [facturas, setFacturas] = useState<FacturaDetalle[]>([]);
+	  const [facturasAll, setFacturasAll] = useState<FacturaDetalle[]>([]);
+	  const [showPackEditReason, setShowPackEditReason] = useState(false);
+	  const [showCanalLockedReason, setShowCanalLockedReason] = useState(false);
+	  const [showCerrarPlazoReason, setShowCerrarPlazoReason] = useState(false);
+	  const [customSalaLocalEnabled, setCustomSalaLocalEnabled] = useState(false);
+	  const [customSalaLocalNombre, setCustomSalaLocalNombre] = useState('');
+	  const [customSalaLocalAforoMin, setCustomSalaLocalAforoMin] = useState<number | ''>('');
+	  const [customSalaLocalAforoMax, setCustomSalaLocalAforoMax] = useState<number | ''>('');
   const [customSalaEspacioEnabled, setCustomSalaEspacioEnabled] = useState(false);
   const [customSalaEspacioNombre, setCustomSalaEspacioNombre] = useState('');
   const [customSalaEspacioAforoMin, setCustomSalaEspacioAforoMin] = useState<number | ''>('');
@@ -186,6 +266,14 @@ export function ReservaDetalleContent({
   const [adhocManualCantidad, setAdhocManualCantidad] = useState(1);
   const [adhocManualPrecio, setAdhocManualPrecio] = useState<number | ''>('');
   const [adhocManualTipo, setAdhocManualTipo] = useState<'comida' | 'bebida'>('comida');
+  const [menuPreviewOpen, setMenuPreviewOpen] = useState(false);
+  const [savingResponsableQuick, setSavingResponsableQuick] = useState(false);
+  const [savingCanalQuick, setSavingCanalQuick] = useState(false);
+  const [responsableQuickOpen, setResponsableQuickOpen] = useState(false);
+  const [responsableQuickDraft, setResponsableQuickDraft] = useState('');
+  const [canalQuickOpen, setCanalQuickOpen] = useState(false);
+  const [canalQuickDraft, setCanalQuickDraft] = useState('');
+  const [chatRightOffset, setChatRightOffset] = useState<number | undefined>(undefined);
 
   const isSinCompraPack = selectedPackId === 'sin_compra_anticipada' || selectedPackId === 'anticipo_por_persona';
   const isAnticipoPack = selectedPackId === 'anticipo_por_persona';
@@ -204,6 +292,59 @@ export function ReservaDetalleContent({
       isKomvo,
     });
   }, [reserva, isKomvo]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const compute = () => {
+      const leftCol = document.getElementById('reserva-detail-left-col');
+      const leftRect = leftCol?.getBoundingClientRect() ?? null;
+      if (leftRect && leftRect.width > 10) {
+        const insetFromLeftCol = 48;
+        const next = window.innerWidth - leftRect.right + insetFromLeftCol;
+        if (!Number.isFinite(next) || next <= 0 || next >= window.innerWidth) {
+          setChatRightOffset(undefined);
+          return;
+        }
+        setChatRightOffset(Math.max(insetFromLeftCol, next));
+        return;
+      }
+
+      const rail = document.getElementById('reserva-detail-right-rail');
+      if (!rail) {
+        setChatRightOffset(undefined);
+        return;
+      }
+      const rect = rail.getBoundingClientRect();
+      if (rect.width < 10) {
+        setChatRightOffset(undefined);
+        return;
+      }
+      const padding = 48;
+      const next = window.innerWidth - rect.left + padding;
+      if (!Number.isFinite(next) || next <= 0 || next >= window.innerWidth) {
+        setChatRightOffset(undefined);
+        return;
+      }
+      setChatRightOffset(Math.max(padding, next));
+    };
+
+    compute();
+    window.setTimeout(compute, 0);
+    window.addEventListener('resize', compute);
+    const rail = document.getElementById('reserva-detail-right-rail');
+    const observer =
+      rail && 'ResizeObserver' in window ? new ResizeObserver(() => compute()) : null;
+    if (rail && observer) observer.observe(rail);
+    const mutation = new MutationObserver(() => compute());
+    mutation.observe(document.body, { subtree: true, childList: true, attributes: true });
+
+    return () => {
+      window.removeEventListener('resize', compute);
+      observer?.disconnect();
+      mutation.disconnect();
+    };
+  }, [variant]);
 
   const toInputDate = (value?: string) => {
     if (!value) return '';
@@ -307,6 +448,7 @@ export function ReservaDetalleContent({
   const precioBarra = precio['Barra Libre'] as Record<string, unknown> | undefined;
   const precioAnticipo = precio.Anticipo as Record<string, unknown> | undefined;
   const precioTickets = Array.isArray(precio.Tickets) ? (precio.Tickets as Array<Record<string, unknown>>) : [];
+  const barraTiempoSolicitado = useMemo(() => getTiempoSolicitadoLabel(precioBarra), [precioBarra]);
   const isFlexibleNoAnticipo = useMemo(() => {
     const categoria = String(reserva?.pack?.Categoria ?? '').toLowerCase();
     const anticipoValue = (precioAnticipo?.Precio ?? precioAnticipo?.price) as number | string | undefined;
@@ -335,6 +477,13 @@ export function ReservaDetalleContent({
     const field = value?.[key];
     return typeof field === 'number' ? field : null;
   };
+  const menuPreview = useMemo(() => {
+    const title = getStringField(precioMenu, 'Nombre') || 'Menú';
+    const description = getStringField(precioMenu, 'Descripción');
+    const priceValue = getNumberField(precioMenu, 'Precio');
+    const price = priceValue != null ? `${Number(priceValue).toFixed(2)}€ / persona` : '';
+    return { title, description, price };
+  }, [precioMenu]);
   const planLabel =
     isAdhocPack
       ? 'Presupuesto personalizado'
@@ -355,6 +504,13 @@ export function ReservaDetalleContent({
     planPriceValue != null && !Number.isNaN(Number(planPriceValue))
       ? `${Number(planPriceValue).toFixed(2)}€`
       : undefined;
+  const planMainLabelForCard = isAdhocPack
+    ? 'Presupuesto'
+    : reserva?.pack?.Categoria === 'Flexible'
+      ? precioAnticipo
+        ? 'Anticipo'
+        : 'Consumo libre en el local'
+      : reserva?.pack?.Subcategoria || reserva?.pack?.Categoria || 'Plan';
   const servicioPagado = (reserva as Record<string, unknown> | null | undefined)?.servicio_pagado as
     | ServicioPagado
     | undefined;
@@ -536,7 +692,12 @@ export function ReservaDetalleContent({
   useEffect(() => {
     if (!packDialogOpen) return;
     requestAnimationFrame(() => {
-      packDialogRef.current?.focus({ preventScroll: true });
+      if (typeof document === 'undefined') return;
+      const container = packDialogRef.current;
+      if (!container) return;
+      const active = document.activeElement;
+      if (active && container.contains(active)) return;
+      container.focus({ preventScroll: true });
     });
     if (!selectedPackId || isSinCompraPack || isAdhocDialog) {
       const hasState =
@@ -674,6 +835,8 @@ export function ReservaDetalleContent({
     }
     return { label: 'Reserva de Komvo', className: 'border-slate-200 bg-slate-50 text-slate-600' };
   }, [reserva, channelMap]);
+
+  const aforoSolicitadoLabel = useMemo(() => getAforoSolicitadoLabel(reserva), [reserva]);
 
   const loadAll = async (options?: { silent?: boolean }) => {
     if (!reservaId) return;
@@ -887,49 +1050,53 @@ export function ReservaDetalleContent({
     setSavingEvento(true);
     try {
       const komboCurrent = (reserva.kombo ?? {}) as Record<string, unknown>;
+      const sizeCurrent = (komboCurrent['Tamaño del grupo'] ?? {}) as Record<string, unknown>;
+      const normalizeText = (value: unknown) => String(value ?? '').trim();
+      const normalizeNumberText = (value: unknown) => {
+        const text = String(value ?? '').trim();
+        if (!text) return '';
+        const parsed = Number(text.replace(',', '.'));
+        return Number.isNaN(parsed) ? text : String(parsed);
+      };
+      const hasEventoChanges =
+        normalizeText(komboCurrent.Fecha) !== normalizeText(eventoFecha) ||
+        normalizeText(komboCurrent.Hora) !== normalizeText(eventoHora) ||
+        normalizeText(komboCurrent.horaFin) !== normalizeText(eventoHoraFin) ||
+        normalizeNumberText(sizeCurrent.min) !== normalizeNumberText(eventoAforoMin) ||
+        normalizeNumberText(sizeCurrent.max) !== normalizeNumberText(eventoAforoMax);
+
       const nextKombo: Record<string, unknown> = {
         ...komboCurrent,
         Fecha: eventoFecha,
         Hora: eventoHora,
         horaFin: eventoHoraFin,
         'Tamaño del grupo': {
-          ...(komboCurrent['Tamaño del grupo'] as Record<string, unknown> | undefined),
+          ...(sizeCurrent as Record<string, unknown> | undefined),
           min: eventoAforoMin ? Number(eventoAforoMin) : '',
           max: eventoAforoMax ? Number(eventoAforoMax) : '',
         },
       };
-      const updateResult = await ReservaDetalleService.updateReservaEvento({
-        reservaId: reserva.id,
-        kombo: nextKombo,
-      });
-      if (updateResult?.missingEmail) {
-        setUpdateEmailFailDialog(true);
-      }
-      const currentResponsableId =
-        (reserva as { responsableEquipo?: { id?: string } | null })?.responsableEquipo?.id ?? '';
-      if (responsableId !== currentResponsableId) {
-        const selected = responsables.find((item) => item.id === responsableId) ?? null;
-        await ReservaDetalleService.updateReservaResponsable({
+      if (hasEventoChanges) {
+        const cambiosEvento: CambioReserva[] = [];
+        if (normalizeText(komboCurrent.Fecha) !== normalizeText(eventoFecha))
+          cambiosEvento.push({ campo: 'fecha', label: 'Fecha del evento', anterior: String(komboCurrent.Fecha ?? ''), nuevo: eventoFecha });
+        if (normalizeText(komboCurrent.Hora) !== normalizeText(eventoHora))
+          cambiosEvento.push({ campo: 'hora', label: 'Hora de inicio', anterior: String(komboCurrent.Hora ?? ''), nuevo: eventoHora });
+        if (normalizeText(komboCurrent.horaFin) !== normalizeText(eventoHoraFin))
+          cambiosEvento.push({ campo: 'horaFin', label: 'Hora de fin', anterior: String(komboCurrent.horaFin ?? ''), nuevo: eventoHoraFin });
+        if (normalizeNumberText(sizeCurrent.min) !== normalizeNumberText(eventoAforoMin))
+          cambiosEvento.push({ campo: 'aforoMin', label: 'Aforo mínimo', anterior: String(sizeCurrent.min ?? ''), nuevo: eventoAforoMin });
+        if (normalizeNumberText(sizeCurrent.max) !== normalizeNumberText(eventoAforoMax))
+          cambiosEvento.push({ campo: 'aforoMax', label: 'Aforo máximo', anterior: String(sizeCurrent.max ?? ''), nuevo: eventoAforoMax });
+
+        const updateResult = await ReservaDetalleService.updateReservaEvento({
           reservaId: reserva.id,
-          responsableEquipo: selected
-            ? {
-                id: selected.id,
-                nombre: selected.nombre,
-                email: selected.email ?? undefined,
-                role: selected.role ?? undefined,
-              }
-            : null,
+          kombo: nextKombo,
+          cambios: cambiosEvento,
         });
-      }
-      const currentCanal =
-        typeof (reserva as Record<string, unknown>)?.canal === 'string'
-          ? String((reserva as Record<string, unknown>).canal ?? '')
-          : '';
-      if (canalDraft !== currentCanal) {
-        await ReservaDetalleService.updateReservaCanal({
-          reservaId: reserva.id,
-          canal: canalDraft ? canalDraft : null,
-        });
+        if (updateResult?.missingEmail) {
+          setUpdateEmailFailDialog(true);
+        }
       }
       await loadAll({ silent: true });
       setEventoDialogOpen(false);
@@ -1082,10 +1249,74 @@ export function ReservaDetalleContent({
     setSavingPack(true);
     try {
       const precioPayload = buildPrecioForPackChange();
+
+      const cambiosPack: CambioReserva[] = [];
+      const oldPack = reserva.pack as Record<string, unknown> | undefined;
+      const oldPrecio = (reserva as Record<string, unknown>).precio as Record<string, unknown> | undefined ?? {};
+      const oldNombrePack = String(oldPack?.['Nombre del pack'] ?? 'Sin plan');
+      const newNombrePack = String(selected['Nombre del pack'] ?? '');
+      if (oldNombrePack !== newNombrePack)
+        cambiosPack.push({ campo: 'plan', label: 'Plan', anterior: oldNombrePack, nuevo: newNombrePack });
+
+      if (selected.Categoria === 'Menú' || selected.Categoria === 'Cocktail') {
+        const key = selected.Categoria === 'Menú' ? 'Menú' : 'Cocktail';
+        const oldEl = oldPrecio[key] as Record<string, unknown> | undefined;
+        const newEl = precioPayload[key] as Record<string, unknown> | undefined;
+        const oldElNombre = String(oldEl?.Nombre ?? '—');
+        const newElNombre = String(newEl?.Nombre ?? '—');
+        if (oldElNombre !== newElNombre)
+          cambiosPack.push({ campo: 'menu', label: selected.Categoria === 'Menú' ? 'Menú seleccionado' : 'Cocktail seleccionado', anterior: oldElNombre, nuevo: newElNombre });
+        const oldElPrecio = formatPrecioVal(oldEl?.Precio);
+        const newElPrecio = formatPrecioVal(newEl?.Precio);
+        if (oldElPrecio !== newElPrecio)
+          cambiosPack.push({ campo: 'precio', label: 'Precio', anterior: oldElPrecio, nuevo: newElPrecio });
+      } else if (selected.Categoria === 'Tickets') {
+        const oldTickets = (oldPrecio.Tickets as Array<Record<string, unknown>> | undefined) ?? [];
+        const newTickets = (precioPayload.Tickets as Array<Record<string, unknown>> | undefined) ?? [];
+        const oldStr = oldTickets.map((t) => `${String(t.ticket ?? '')} x${String(t.quantity ?? '')} (${formatPrecioVal(t.price)})`).join(', ') || '—';
+        const newStr = newTickets.map((t) => `${String(t.ticket ?? '')} x${String(t.quantity ?? '')} (${formatPrecioVal(t.price)})`).join(', ') || '—';
+        if (oldStr !== newStr)
+          cambiosPack.push({ campo: 'tickets', label: 'Tickets', anterior: oldStr, nuevo: newStr });
+      } else if ((selected as Record<string, unknown>).Subcategoria === 'Barra Libre') {
+        const oldBL = oldPrecio['Barra Libre'] as Record<string, unknown> | undefined;
+        const newBL = precioPayload['Barra Libre'] as Record<string, unknown> | undefined;
+        const oldBLNombre = String(oldBL?.Nombre ?? '—');
+        const newBLNombre = String(newBL?.Nombre ?? '—');
+        if (oldBLNombre !== newBLNombre)
+          cambiosPack.push({ campo: 'barraLibre', label: 'Barra libre', anterior: oldBLNombre, nuevo: newBLNombre });
+        const oldInterval = oldBL?.intervaloSeleccionado as Record<string, unknown> | undefined;
+        const newInterval = newBL?.intervaloSeleccionado as Record<string, unknown> | undefined;
+        const oldDuracion = String(oldInterval?.duracionMin ?? '—');
+        const newDuracion = String(newInterval?.duracionMin ?? '—');
+        if (oldDuracion !== newDuracion)
+          cambiosPack.push({ campo: 'duracion', label: 'Duración', anterior: oldDuracion, nuevo: newDuracion });
+        const oldBLPrecio = formatPrecioVal(oldBL?.Precio);
+        const newBLPrecio = formatPrecioVal(newBL?.Precio);
+        if (oldBLPrecio !== newBLPrecio)
+          cambiosPack.push({ campo: 'precio', label: 'Precio', anterior: oldBLPrecio, nuevo: newBLPrecio });
+      } else if (isAnticipoPack) {
+        const oldAnticipo = oldPrecio.Anticipo as Record<string, unknown> | undefined;
+        const oldDesc = String(oldAnticipo?.['Descripción'] ?? '—');
+        const newDesc = anticipoDescripcion || '—';
+        if (oldDesc !== newDesc)
+          cambiosPack.push({ campo: 'anticipoDesc', label: 'Descripción anticipo', anterior: oldDesc, nuevo: newDesc });
+        const oldPrecioAnticipo = formatPrecioVal(oldAnticipo?.Precio);
+        const newPrecioAnticipo = formatPrecioVal(anticipoPrecio);
+        if (oldPrecioAnticipo !== newPrecioAnticipo)
+          cambiosPack.push({ campo: 'anticipoPrecio', label: 'Precio anticipo', anterior: oldPrecioAnticipo, nuevo: newPrecioAnticipo });
+      } else if (isAdhocDialog) {
+        const oldAdhoc = oldPrecio.adhoc as Record<string, unknown> | undefined;
+        const oldTotal = formatPrecioVal(oldAdhoc?.total);
+        const newTotal = formatPrecioVal((precioPayload.adhoc as Record<string, unknown> | undefined)?.total);
+        if (oldTotal !== newTotal)
+          cambiosPack.push({ campo: 'adhocTotal', label: 'Total presupuesto', anterior: oldTotal, nuevo: newTotal });
+      }
+
       const updateResult = await ReservaDetalleService.updateReservaPack({
         reservaId: reserva.id,
         pack: selected,
         precio: precioPayload,
+        cambios: cambiosPack,
       });
       if (updateResult?.missingEmail) {
         setUpdateEmailFailDialog(true);
@@ -1147,6 +1378,16 @@ export function ReservaDetalleContent({
     if (!reserva || !selectedRestauranteId) return;
     setSavingLocal(true);
     try {
+      const oldLocalNombre = String((reserva.restaurante as Record<string, unknown> | undefined)?.['Nombre del restaurante'] ?? '—');
+      const newLocalNombre = restaurantes.find((r) => r.id === selectedRestauranteId)?.nombreRestaurante ?? selectedRestauranteId;
+      const oldSalaLocal = String((reserva.sala as Record<string, unknown> | undefined)?.nombre ?? '—');
+      const newSalaLocal = customSalaLocalEnabled ? customSalaLocalNombre : selectedSalaNombre;
+      const cambiosLocal: CambioReserva[] = [];
+      if (oldLocalNombre !== newLocalNombre)
+        cambiosLocal.push({ campo: 'local', label: 'Local', anterior: oldLocalNombre, nuevo: newLocalNombre });
+      if (oldSalaLocal !== newSalaLocal)
+        cambiosLocal.push({ campo: 'espacio', label: 'Espacio', anterior: oldSalaLocal, nuevo: newSalaLocal });
+
       let updateResult: { missingEmail?: boolean } | undefined;
       if (customSalaLocalEnabled) {
         if (!customSalaLocalNombre) return;
@@ -1158,6 +1399,7 @@ export function ReservaDetalleContent({
             aforoMinimo: typeof customSalaLocalAforoMin === 'number' ? customSalaLocalAforoMin : undefined,
             aforoMaximo: typeof customSalaLocalAforoMax === 'number' ? customSalaLocalAforoMax : undefined,
           },
+          cambios: cambiosLocal,
         });
       } else {
         if (!selectedSalaNombre) return;
@@ -1165,6 +1407,7 @@ export function ReservaDetalleContent({
           reservaId: reserva.id,
           restauranteId: selectedRestauranteId,
           salaNombre: selectedSalaNombre,
+          cambios: cambiosLocal,
         });
       }
       if (updateResult?.missingEmail) {
@@ -1184,6 +1427,12 @@ export function ReservaDetalleContent({
     if (!restauranteId) return;
     setSavingEspacio(true);
     try {
+      const oldSalaEspacio = String((reserva.sala as Record<string, unknown> | undefined)?.nombre ?? '—');
+      const newSalaEspacio = customSalaEspacioEnabled ? customSalaEspacioNombre : selectedSalaNombre;
+      const cambiosEspacio: CambioReserva[] = [];
+      if (oldSalaEspacio !== newSalaEspacio)
+        cambiosEspacio.push({ campo: 'espacio', label: 'Espacio', anterior: oldSalaEspacio, nuevo: newSalaEspacio });
+
       let updateResult: { missingEmail?: boolean } | undefined;
       if (customSalaEspacioEnabled) {
         if (!customSalaEspacioNombre) return;
@@ -1195,6 +1444,7 @@ export function ReservaDetalleContent({
             aforoMinimo: typeof customSalaEspacioAforoMin === 'number' ? customSalaEspacioAforoMin : undefined,
             aforoMaximo: typeof customSalaEspacioAforoMax === 'number' ? customSalaEspacioAforoMax : undefined,
           },
+          cambios: cambiosEspacio,
         });
       } else {
         if (!selectedSalaNombre) return;
@@ -1202,6 +1452,7 @@ export function ReservaDetalleContent({
           reservaId: reserva.id,
           restauranteId,
           salaNombre: selectedSalaNombre,
+          cambios: cambiosEspacio,
         });
       }
       if (updateResult?.missingEmail) {
@@ -1233,20 +1484,155 @@ export function ReservaDetalleContent({
     );
   }
 
+  const facturasCardNode = (
+    <FacturasCard
+      facturas={facturas}
+      facturasAll={facturasAll}
+      leadKomvo={Boolean(reserva.leadKomvo)}
+      asistentes={asistencias}
+      servicioPagado={servicioPagado ?? null}
+      planLabel={planLabel}
+      planPriceLabel={planPriceLabel}
+      partnerId={AuthService.getCurrentPartnerIdSync()}
+      reservaId={reserva?.id ?? null}
+      reservaPagado={Boolean(reserva?.pagado)}
+      reservaEstado={reserva?.estado ?? null}
+      reservaFechaEvento={
+        (reserva?.kombo as { Fecha?: string | Date } | undefined)?.Fecha ??
+        (reserva?.evento as { 'Fecha del evento'?: string | Date } | undefined)?.['Fecha del evento'] ??
+        null
+      }
+    />
+  );
+
+  const asistentesRailNode = (
+    <AsistentesCard
+      reservaNombre={reserva.usuario?.['Nombre de usuario'] ?? null}
+      reservaFecha={(reserva.kombo as { Fecha?: string | Date } | undefined)?.Fecha ?? null}
+      reservaEstado={reserva.estado ?? null}
+      aforoSolicitadoLabel={aforoSolicitadoLabel}
+      stats={asistentesStats}
+      alergias={asistencias}
+      preguntas={
+        (reserva.questions as Array<{ question?: string; question_type?: string; required?: boolean; options?: string[] }> | undefined) ??
+        []
+      }
+      showPaymentStats={reserva.tipoCompra?.toLowerCase() === 'entradas'}
+      isKomvo={isKomvo}
+      reservaId={reserva.id}
+      onReload={() => loadAll({ silent: true })}
+      layout="split"
+    />
+  );
+
+  const pagoCardNode =
+    reserva.estado?.toLowerCase() !== 'pendiente' &&
+    !['completado', 'fallado'].includes((reserva.estado ?? '').toLowerCase()) ? (
+      <Card className="gap-1.5 border-none bg-white p-4 shadow-sm">
+        <CardContent className="space-y-3 p-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fecha límite</p>
+          <p className="text-sm leading-none text-slate-600">
+            {reserva.fechaLimitePago ? `Hasta el ${formatDate(reserva.fechaLimitePago)}` : 'Sin fecha'}
+          </p>
+          {(() => {
+            const estado = (reserva.estado ?? '').toLowerCase();
+            const canEdit = !['completado', 'fallado', 'expirado'].includes(estado);
+            if (!canEdit) return null;
+
+            const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
+            const canCloseWindow = tipoCompra === 'entradas' && !paymentWindowConcluded;
+
+	            return (
+	              <div className="flex w-full gap-2 pt-1">
+	                <div className="relative w-full flex-1">
+	                  <Button
+	                    variant="outline"
+	                    size="sm"
+	                    className="h-7 w-full justify-center gap-2 px-3"
+	                    disabled={savingFechaLimite || !canCloseWindow}
+	                    onClick={() => setCloseVentaDialogOpen(true)}
+	                  >
+	                    <Lock className="h-4 w-4" />
+	                    Cerrar plazo
+	                  </Button>
+	                  {!canCloseWindow && showCerrarPlazoReason && (
+	                    <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+	                      La reserva no está en periodo de pago.
+	                    </div>
+	                  )}
+	                  {!canCloseWindow && !savingFechaLimite && (
+	                    <button
+	                      type="button"
+	                      className="absolute inset-0"
+	                      aria-label="Ver motivo de bloqueo"
+	                      onClick={() => {
+	                        setShowCerrarPlazoReason(true);
+	                        window.setTimeout(() => setShowCerrarPlazoReason(false), 3000);
+	                      }}
+	                    />
+	                  )}
+	                </div>
+	                <Button
+	                  variant="outline"
+	                  size="sm"
+	                  className="h-7 w-full flex-1 justify-center gap-2 px-3"
+                  onClick={openFechaLimiteDialog}
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  {(() => {
+                    if (tipoCompra !== 'entradas') return 'Editar fecha';
+                    return paymentWindowConcluded ? 'Ampliar fecha' : 'Editar fecha';
+                  })()}
+                </Button>
+              </div>
+            );
+          })()}
+          {reserva.estado?.toLowerCase() === 'aceptado' && (
+            <p className="text-sm text-slate-600">
+              {(() => {
+                const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
+                if (tipoCompra === 'entradas') {
+                  return paymentWindowConcluded
+                    ? 'El plazo para comprar la parte del plan ha concluido.'
+                    : 'El plazo para comprar la parte del plan está abierto.';
+                }
+                if (isFlexibleNoAnticipo) {
+                  return 'Reserva sin anticipo: no requiere pago.';
+                }
+                return reserva.pagado ? 'El cliente ha pagado la totalidad del plan.' : 'El cliente pagará la totalidad del plan.';
+              })()}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    ) : null;
+
+  const panelRightRailTarget =
+    variant === 'panel' && typeof document !== 'undefined'
+      ? document.getElementById('reserva-detail-right-rail')
+      : null;
+
   return (
     <div
       className={
         variant === 'panel'
-          ? 'relative h-full overflow-y-auto bg-slate-50 px-6 py-6'
+          ? 'relative h-full overflow-x-hidden overflow-y-auto bg-slate-50 px-6 py-6'
           : 'relative min-h-screen bg-slate-50 px-6 py-8'
       }
     >
       <div className={variant === 'panel' ? 'origin-top-left scale-[0.8] w-[125%]' : ''}>
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        <div
+          className={
+            variant === 'panel'
+              ? 'flex w-full flex-col gap-6'
+              : 'mx-auto flex w-full max-w-6xl flex-col gap-6'
+          }
+        >
         <div className="flex items-center justify-between">
           {variant === 'panel' ? (
-            <Button variant="outline" onClick={onClose}>
-              Cerrar
+            <Button variant="outline" className="gap-2" onClick={onClose}>
+              <ArrowLeft className="h-4 w-4" />
+              Volver
             </Button>
           ) : (
             <Button variant="outline" onClick={() => history.back()}>
@@ -1392,202 +1778,454 @@ export function ReservaDetalleContent({
           </DialogContent>
         </Dialog>
 
-        <Dialog open={updateEmailFailDialog} onOpenChange={setUpdateEmailFailDialog}>
+	        <Dialog open={updateEmailFailDialog} onOpenChange={setUpdateEmailFailDialog}>
+	          <DialogContent className="max-w-md" onOpenAutoFocus={(event) => event.preventDefault()}>
+	            <DialogHeader>
+	              <DialogTitle>No se pudo enviar el correo</DialogTitle>
+	              <DialogDescription>
+	                No encontramos un email del usuario en la reserva ni en la cuenta. Tendrás que avisarle manualmente.
+	              </DialogDescription>
+	            </DialogHeader>
+	            <DialogFooter>
+	              <Button onClick={() => setUpdateEmailFailDialog(false)}>Cerrar</Button>
+	            </DialogFooter>
+	          </DialogContent>
+	        </Dialog>
+
+	        {cambioPendiente && cambioSolicitado && (
+	          <Card className="gap-4 border border-amber-200 bg-amber-50/60 p-4 shadow-sm">
+	            <CardContent className="space-y-4 p-0">
+	              <div className="flex items-start justify-between gap-3">
+	                <div>
+	                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Solicitud de cambio</p>
+	                  {cambioSolicitado.fechaSolicitud && (
+	                    <p className="text-xs text-slate-500">
+	                      Fecha de solicitud: {formatCambioFecha(cambioSolicitado.fechaSolicitud)}
+	                    </p>
+	                  )}
+	                </div>
+	              </div>
+	              <div className="grid gap-3 text-sm text-slate-700">
+	                {(() => {
+	                  const blocks: Array<{
+	                    label: string;
+	                    before: string;
+	                    after: string;
+	                  }> = [];
+
+	                  const fechaAntes = formatCambioFecha(cambioSolicitado.fechaAnterior);
+	                  const fechaDespues = formatCambioFecha(cambioSolicitado.fechaNueva);
+	                  if (fechaAntes !== fechaDespues) {
+	                    blocks.push({ label: 'Fecha', before: fechaAntes, after: fechaDespues });
+	                  }
+
+	                  const horaAntes = `${formatCambioHora(cambioSolicitado.horaAnterior)}${
+	                    cambioSolicitado.horaFinAnterior ? ` - ${formatCambioHora(cambioSolicitado.horaFinAnterior)}` : ''
+	                  }`;
+	                  const horaDespues = `${formatCambioHora(cambioSolicitado.horaNueva)}${
+	                    cambioSolicitado.horaFinNueva ? ` - ${formatCambioHora(cambioSolicitado.horaFinNueva)}` : ''
+	                  }`;
+	                  if (horaAntes !== horaDespues) {
+	                    blocks.push({ label: 'Hora', before: horaAntes, after: horaDespues });
+	                  }
+
+	                  const aforoAntes = cambioSolicitado.aforoAnterior != null ? String(cambioSolicitado.aforoAnterior) : '—';
+	                  const aforoDespues = cambioSolicitado.aforoNuevo != null ? String(cambioSolicitado.aforoNuevo) : '—';
+	                  if (aforoAntes !== aforoDespues) {
+	                    blocks.push({ label: 'Aforo', before: aforoAntes, after: aforoDespues });
+	                  }
+
+	                  if (blocks.length === 0) {
+	                    return (
+	                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+	                        No hay cambios detectados.
+	                      </div>
+	                    );
+	                  }
+
+	                  return (
+	                    <div className="grid gap-3">
+	                      {blocks.map((block) => (
+	                        <div key={block.label} className="grid grid-cols-2 gap-3">
+	                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+	                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+	                              {block.label} anterior
+	                            </p>
+	                            <p className="text-sm font-semibold text-slate-900">{block.before}</p>
+	                          </div>
+	                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+	                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+	                              {block.label} nueva
+	                            </p>
+	                            <p className="text-sm font-semibold text-slate-900">{block.after}</p>
+	                          </div>
+	                        </div>
+	                      ))}
+	                    </div>
+	                  );
+	                })()}
+	              </div>
+	            </CardContent>
+	          </Card>
+	        )}
+
+	        {(() => {
+	          const manageUrl =
+	            WEB_URL && reserva?.id
+	              ? isAdhocPack && !reserva.pagado
+	                ? `${WEB_URL}/pres/${reserva.id}`
+                : !reserva.leadKomvo &&
+                    (reserva.estado ?? '').toLowerCase() === 'aceptado' &&
+                    !reserva.pagado &&
+                    (reserva.tipoCompra ?? '').toLowerCase() !== 'entradas'
+                  ? `${WEB_URL}/pres/${reserva.id}`
+                  : `${WEB_URL}/plan/${reserva.id}/gestionar`
+              : null;
+          return (
+            <ReservaHeader
+              reserva={reserva}
+              onEditEvento={openEventoDialog}
+              originBadge={originBadge ?? undefined}
+              clienteEmail={!isKomvo ? cliente.email : null}
+              clienteTelefono={!isKomvo ? cliente.telefono : null}
+              manageUrl={manageUrl}
+              sendingEmail={sendingManageEmail}
+              onSendEmail={() => {
+                if (!reserva?.id || !cliente.email) return;
+                setSendingManageEmail(true);
+                void ReservaDetalleService.sendReservaManageEmail({
+                  reservaId: reserva.id,
+                  email: cliente.email,
+                }).finally(() => setSendingManageEmail(false));
+              }}
+            />
+          );
+        })()}
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="gap-3 border-none bg-white p-4 shadow-sm">
+            <CardContent className="space-y-4 p-0">
+              <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Local</p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                  <p className="text-base font-semibold text-slate-900">
+                    {reserva.restaurante?.['Nombre del restaurante'] || 'Restaurante'}
+                  </p>
+                  <Button type="button" onClick={openLocalDialog} variant="outline" size="sm" className="gap-2">
+                    <Home className="h-4 w-4" />
+                    Cambiar local
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Espacio</p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+	                  <div>
+	                    <p className="text-base font-semibold text-slate-900">
+	                      {(reserva.sala as { nombre?: string } | null | undefined)?.nombre || 'Sin sala asignada'}
+	                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Aforo{' '}
+                      {((reserva.sala as { aforoMinimo?: number | null } | null | undefined)?.aforoMinimo ?? null) !== null
+                        ? (reserva.sala as { aforoMinimo?: number | null } | null | undefined)?.aforoMinimo
+                        : '—'}{' '}
+                      -{' '}
+                      {((reserva.sala as { aforoMaximo?: number | null } | null | undefined)?.aforoMaximo ?? null) !== null
+                        ? (reserva.sala as { aforoMaximo?: number | null } | null | undefined)?.aforoMaximo
+                        : '—'}{' '}
+                      pax
+                    </p>
+                  </div>
+                  <Button type="button" onClick={openEspacioDialog} variant="outline" size="sm" className="gap-2">
+                    <DoorOpen className="h-4 w-4" />
+                    Cambiar espacio
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="gap-3 border-none bg-white p-4 shadow-sm">
+            <CardContent className="space-y-4 p-0">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Responsable de la reserva</p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <p className="text-base font-semibold text-slate-900">
+                    {responsables.find((item) => item.id === responsableId)?.nombre || 'Equipo sin asignar'}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={savingResponsableQuick}
+                    onClick={() => {
+                      setResponsableQuickDraft(responsableId);
+                      setResponsableQuickOpen(true);
+                    }}
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    Cambiar responsable
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+	                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Canal de la reserva</p>
+	                <div className="mt-2 flex items-center justify-between gap-3">
+	                  <p className="text-base font-semibold text-slate-900">
+	                    {reserva.leadKomvo === true ? 'Komvo' : canalDraft || 'Sin canal'}
+	                  </p>
+	                  <div className="relative">
+	                    <Button
+	                      type="button"
+	                      variant="outline"
+	                      size="sm"
+	                      className="gap-2"
+	                      disabled={savingCanalQuick || reserva.leadKomvo === true}
+	                      onClick={() => {
+	                        setCanalQuickDraft(canalDraft);
+	                        setCanalQuickOpen(true);
+	                      }}
+	                    >
+	                      <Tag className="h-4 w-4" />
+	                      Cambiar canal
+	                    </Button>
+	                    {reserva.leadKomvo === true && showCanalLockedReason && (
+	                      <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+	                        El canal es Komvo y no se puede cambiar.
+	                      </div>
+	                    )}
+	                    {reserva.leadKomvo === true && !savingCanalQuick && (
+	                      <button
+	                        type="button"
+	                        className="absolute inset-0"
+	                        aria-label="Ver motivo de bloqueo"
+	                        onClick={() => {
+	                          setShowCanalLockedReason(true);
+	                          window.setTimeout(() => setShowCanalLockedReason(false), 3000);
+	                        }}
+	                      />
+	                    )}
+	                  </div>
+	                </div>
+	              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Dialog
+          open={responsableQuickOpen}
+          onOpenChange={(open) => {
+            setResponsableQuickOpen(open);
+            if (open) setResponsableQuickDraft(responsableId);
+          }}
+        >
           <DialogContent className="max-w-md" onOpenAutoFocus={(event) => event.preventDefault()}>
             <DialogHeader>
-              <DialogTitle>No se pudo enviar el correo</DialogTitle>
-              <DialogDescription>
-                No encontramos un email del usuario en la reserva ni en la cuenta. Tendrás que avisarle manualmente.
-              </DialogDescription>
+              <DialogTitle>Cambiar responsable</DialogTitle>
+              <DialogDescription>Solo afecta a la gestión interna del local.</DialogDescription>
             </DialogHeader>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {[{ id: '', nombre: 'Equipo sin asignar', role: undefined as string | undefined }, ...responsables].map((item) => {
+                const isSelected = responsableQuickDraft === item.id;
+                const initials = item.nombre.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                      isSelected
+                        ? 'border-[#7472fd] bg-[rgba(116,114,253,0.06)]'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                    onClick={() => setResponsableQuickDraft(item.id)}
+                  >
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                      isSelected ? 'bg-[#7472fd] text-white' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {item.id ? initials : '—'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate text-sm font-medium ${isSelected ? 'text-[#7472fd]' : 'text-slate-900'}`}>{item.nombre}</p>
+                      {item.role && <p className="truncate text-xs text-slate-400">{item.role}</p>}
+                    </div>
+                    {isSelected && (
+                      <div className="h-4 w-4 shrink-0 rounded-full border-2 border-[#7472fd] bg-[#7472fd]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
             <DialogFooter>
-              <Button onClick={() => setUpdateEmailFailDialog(false)}>Cerrar</Button>
+              <Button variant="outline" onClick={() => setResponsableQuickOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-[#7472FD] text-white hover:bg-[#5f5bf2]"
+                disabled={savingResponsableQuick}
+                onClick={() => {
+                  if (!reserva?.id) return;
+                  setSavingResponsableQuick(true);
+                  void (async () => {
+                    try {
+                      const selected = responsables.find((item) => item.id === responsableQuickDraft) ?? null;
+                      await ReservaDetalleService.updateReservaResponsable({
+                        reservaId: reserva.id,
+                        responsableEquipo: selected
+                          ? {
+                              id: selected.id,
+                              nombre: selected.nombre,
+                              email: selected.email ?? undefined,
+                              role: selected.role ?? undefined,
+                            }
+                          : null,
+                      });
+                      setResponsableId(responsableQuickDraft);
+                      await loadAll({ silent: true });
+                      setResponsableQuickOpen(false);
+                    } finally {
+                      setSavingResponsableQuick(false);
+                    }
+                  })();
+                }}
+              >
+                {savingResponsableQuick ? 'Guardando...' : 'Guardar'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        <ReservaHeader
-          reserva={reserva}
-          showClienteContact={!isKomvo}
-          onChangeLocal={openLocalDialog}
-          onChangeEspacio={openEspacioDialog}
-          onEditEvento={openEventoDialog}
-          originBadge={originBadge ?? undefined}
-        />
+        <Dialog
+          open={canalQuickOpen}
+          onOpenChange={(open) => {
+            setCanalQuickOpen(open);
+            if (open) setCanalQuickDraft(canalDraft);
+          }}
+        >
+          <DialogContent className="max-w-md" onOpenAutoFocus={(event) => event.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>Cambiar canal</DialogTitle>
+              <DialogDescription>Solo afecta a la gestión interna del local.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {[{ name: '', color: '#94a3b8' }, ...channels].map((item) => {
+                const isSelected = canalQuickDraft === item.name;
+                const label = item.name || 'Sin canal';
+                return (
+                  <button
+                    key={item.name}
+                    type="button"
+                    className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                      isSelected
+                        ? 'border-[#7472fd] bg-[rgba(116,114,253,0.06)]'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                    onClick={() => setCanalQuickDraft(item.name)}
+                  >
+                    <div
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: item.name ? item.color : '#cbd5e1' }}
+                    />
+                    <p className={`flex-1 truncate text-sm font-medium ${isSelected ? 'text-[#7472fd]' : 'text-slate-900'}`}>
+                      {label}
+                    </p>
+                    {isSelected && (
+                      <div className="h-4 w-4 shrink-0 rounded-full border-2 border-[#7472fd] bg-[#7472fd]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCanalQuickOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-[#7472FD] text-white hover:bg-[#5f5bf2]"
+                disabled={savingCanalQuick}
+                onClick={() => {
+                  if (!reserva?.id) return;
+                  setSavingCanalQuick(true);
+                  void (async () => {
+                    try {
+                      await ReservaDetalleService.updateReservaCanal({
+                        reservaId: reserva.id,
+                        canal: canalQuickDraft ? canalQuickDraft : null,
+                      });
+                      setCanalDraft(canalQuickDraft);
+                      await loadAll({ silent: true });
+                      setCanalQuickOpen(false);
+                    } finally {
+                      setSavingCanalQuick(false);
+                    }
+                  })();
+                }}
+              >
+                {savingCanalQuick ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-          <div className="relative order-2 space-y-6 lg:order-1">
-            <NotasEtiquetasCard
-              reservaId={reserva.id}
-              notasRaw={reserva.notasReserva ?? []}
+	        <div className="grid gap-6 lg:grid-cols-2">
+	          <div className="space-y-6">
+	            <NotasEtiquetasCard
+	              reservaId={reserva.id}
+	              notasRaw={reserva.notasReserva ?? []}
               etiquetasRaw={reserva.etiquetas ?? []}
               onReload={() => loadAll({ silent: true })}
             />
-            <AsistentesCard
-              stats={asistentesStats}
-              alergias={asistencias}
-              preguntas={
-                (reserva.questions as Array<{ question?: string; question_type?: string; required?: boolean; options?: string[] }> | undefined) ??
-                []
-              }
-              showPaymentStats={reserva.tipoCompra?.toLowerCase() === 'entradas'}
-              isKomvo={isKomvo}
-              reservaId={reserva.id}
-              onReload={() => loadAll({ silent: true })}
-            />
-            <FacturasCard
-              facturas={facturas}
-              facturasAll={facturasAll}
-              leadKomvo={Boolean(reserva.leadKomvo)}
-              asistentes={asistencias}
-              servicioPagado={servicioPagado ?? null}
-              planLabel={planLabel}
-              planPriceLabel={planPriceLabel}
-              partnerId={AuthService.getCurrentPartnerIdSync()}
-              reservaId={reserva?.id ?? null}
-              reservaPagado={Boolean(reserva?.pagado)}
-              reservaEstado={reserva?.estado ?? null}
-              reservaFechaEvento={(reserva?.kombo as { Fecha?: string | Date } | undefined)?.Fecha ??
-                (reserva?.evento as { 'Fecha del evento'?: string | Date } | undefined)?.['Fecha del evento'] ??
-                null}
-            />
-          </div>
-
-          <div className="order-1 space-y-6 lg:order-2">
-            {cambioPendiente && cambioSolicitado && (
-              <Card className="border border-amber-200 bg-amber-50/60 shadow-sm">
-                <CardContent className="space-y-4 py-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        Solicitud de cambio
-                      </p>
-                      <p className="text-base font-semibold text-slate-900">Cambios solicitados</p>
-                      {cambioSolicitado.fechaSolicitud && (
-                        <p className="text-xs text-slate-500">
-                          Fecha de solicitud: {formatCambioFecha(cambioSolicitado.fechaSolicitud)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid gap-3 text-sm text-slate-700">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          Fecha anterior
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatCambioFecha(cambioSolicitado.fechaAnterior)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          Fecha nueva
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatCambioFecha(cambioSolicitado.fechaNueva)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          Hora anterior
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatCambioHora(cambioSolicitado.horaAnterior)}
-                          {cambioSolicitado.horaFinAnterior
-                            ? ` - ${formatCambioHora(cambioSolicitado.horaFinAnterior)}`
-                            : ''}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          Hora nueva
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatCambioHora(cambioSolicitado.horaNueva)}
-                          {cambioSolicitado.horaFinNueva
-                            ? ` - ${formatCambioHora(cambioSolicitado.horaFinNueva)}`
-                            : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          Aforo anterior
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {cambioSolicitado.aforoAnterior ?? '—'}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          Aforo nuevo
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {cambioSolicitado.aforoNuevo ?? '—'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <ClienteCard
-              nombre={reserva.usuario?.['Nombre de usuario']}
-              email={cliente.email}
-              telefono={cliente.telefono}
-              showContact={!isKomvo}
-              manageUrl={
-                WEB_URL && reserva?.id
-                  ? isAdhocPack && !reserva.pagado
-                    ? `${WEB_URL}/pres/${reserva.id}`
-                    : !reserva.leadKomvo &&
-                        (reserva.estado ?? '').toLowerCase() === 'aceptado' &&
-                        !reserva.pagado &&
-                        (reserva.tipoCompra ?? '').toLowerCase() !== 'entradas'
-                      ? `${WEB_URL}/pres/${reserva.id}`
-                      : `${WEB_URL}/plan/${reserva.id}/gestionar`
-                  : null
-              }
-              userId={reserva.usuario?.id ?? null}
-              sendingEmail={sendingManageEmail}
-              onSendEmail={async () => {
-                if (!reserva?.id || !cliente.email) return;
-                setSendingManageEmail(true);
-                try {
-                  await ReservaDetalleService.sendReservaManageEmail({
-                    reservaId: reserva.id,
-                    email: cliente.email,
-                  });
-                } finally {
-                  setSendingManageEmail(false);
+            {variant === 'panel' ? (
+              <div className="lg:hidden">
+                <AsistentesCard
+                  reservaNombre={reserva.usuario?.['Nombre de usuario'] ?? null}
+                  reservaFecha={(reserva.kombo as { Fecha?: string | Date } | undefined)?.Fecha ?? null}
+                  reservaEstado={reserva.estado ?? null}
+                  aforoSolicitadoLabel={aforoSolicitadoLabel}
+                  stats={asistentesStats}
+                  alergias={asistencias}
+                  preguntas={
+                    (reserva.questions as Array<{ question?: string; question_type?: string; required?: boolean; options?: string[] }> | undefined) ??
+                    []
+                  }
+                  showPaymentStats={reserva.tipoCompra?.toLowerCase() === 'entradas'}
+                  isKomvo={isKomvo}
+                  reservaId={reserva.id}
+                  onReload={() => loadAll({ silent: true })}
+                />
+              </div>
+            ) : (
+              <AsistentesCard
+                reservaNombre={reserva.usuario?.['Nombre de usuario'] ?? null}
+                reservaFecha={(reserva.kombo as { Fecha?: string | Date } | undefined)?.Fecha ?? null}
+                reservaEstado={reserva.estado ?? null}
+                aforoSolicitadoLabel={aforoSolicitadoLabel}
+                stats={asistentesStats}
+                alergias={asistencias}
+                preguntas={
+                  (reserva.questions as Array<{ question?: string; question_type?: string; required?: boolean; options?: string[] }> | undefined) ??
+                  []
                 }
-              }}
-            />
-            <Card className="border-none bg-white shadow-sm">
-              <CardContent className="space-y-4 py-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Plan</p>
+                showPaymentStats={reserva.tipoCompra?.toLowerCase() === 'entradas'}
+                isKomvo={isKomvo}
+                reservaId={reserva.id}
+                onReload={() => loadAll({ silent: true })}
+              />
+            )}
+	            {variant === 'panel' ? <div className="lg:hidden">{facturasCardNode}</div> : facturasCardNode}
+	          </div>
+
+	          <div className="space-y-6">
+	            <Card className="gap-3 border-none bg-white p-4 shadow-sm">
+	              <CardContent className="space-y-3 p-0">
+	                <div className="flex items-start justify-between gap-3">
+	                  <div>
+	                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Plan</p>
                     <p className="text-base font-semibold text-slate-900">
-                      {isAdhocPack
-                        ? 'Presupuesto'
-                        : reserva.pack?.Categoria === 'Flexible'
-                        ? precioAnticipo
-                          ? 'Anticipo'
-                          : 'Consumo libre en el local'
-                        : reserva.pack?.Subcategoria || reserva.pack?.Categoria || 'Plan'}
+                      {planMainLabelForCard}
                     </p>
-                    {isAdhocPack ? (
-                      <p className="text-xs text-slate-500">Presupuesto personalizado</p>
-                    ) : reserva.pack?.Categoria !== 'Flexible' ? (
-                      <p className="text-xs text-slate-500">
-                        {reserva.pack?.['Nombre del pack'] || 'Sin plan'}
-                      </p>
-                    ) : null}
                     {!packEditAvailability.canEdit && (
                       <p className="mt-2 text-xs font-medium text-amber-600">{packEditAvailability.reason}</p>
                     )}
@@ -1687,11 +2325,18 @@ export function ReservaDetalleContent({
                                 key={`${item.name}-${index}`}
                                 className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
                               >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm font-semibold text-slate-900">{item.name}</p>
-                                    {item.quantity > 0 && (
-                                      <p className="text-xs text-slate-500">
+	                                <div className="flex items-center justify-between gap-3">
+	                                  <div>
+	                                    <div className="flex items-center gap-2">
+	                                      <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+	                                      {servicioPagadoLabel.toLowerCase() === 'barra libre' && barraTiempoSolicitado ? (
+	                                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+	                                          {barraTiempoSolicitado}
+	                                        </span>
+	                                      ) : null}
+	                                    </div>
+	                                    {item.quantity > 0 && (
+	                                      <p className="text-xs text-slate-500">
                                         {(() => {
                                           const isTickets = servicioPagadoLabel.toLowerCase() === 'tickets';
                                           const unitCents =
@@ -1709,7 +2354,15 @@ export function ReservaDetalleContent({
                                     )}
                                   </div>
                                   <p className="text-sm font-semibold text-slate-900">
-                                    {typeof item.total === 'number' ? `${(item.total / 100).toFixed(2)}€` : '—'}
+                                    {(() => {
+                                      if (typeof item.total !== 'number') return '—';
+                                      const unitCents =
+                                        item.quantity > 0 ? item.total / item.quantity : null;
+                                      if (servicioPagadoIsPerPerson && typeof unitCents === 'number') {
+                                        return `${(unitCents / 100).toFixed(2)}€ / persona`;
+                                      }
+                                      return `${(item.total / 100).toFixed(2)}€`;
+                                    })()}
                                   </p>
                                 </div>
                               </div>
@@ -1742,115 +2395,135 @@ export function ReservaDetalleContent({
                   const hasAnticipo = Boolean(getNumberField(precioAnticipo, 'Precio') != null || getStringField(precioAnticipo, 'Descripción'));
                   const hasAny = hasAnticipo || hasMenu || hasCocktail || hasBarra || ticketItems.length > 0;
                   if (!hasAny) return null;
+	                  const detailRows: Array<{
+	                    key: string;
+	                    title: string;
+	                    meta?: string;
+	                    subtitle?: string;
+	                    price?: string;
+	                  }> = [];
+	                  const addRow = (key: string, title: string, subtitle?: string, price?: string, meta?: string) => {
+	                    detailRows.push({ key, title, subtitle, price, meta });
+	                  };
+                  if (hasAnticipo) {
+                    const desc = getStringField(precioAnticipo, 'Descripción');
+                    const priceValue = getNumberField(precioAnticipo, 'Precio');
+                    addRow(
+                      'anticipo',
+                      desc || 'Anticipo',
+                      undefined,
+                      priceValue != null ? `${Number(priceValue).toFixed(2)}€ / persona` : undefined
+                    );
+                  }
+                  if (hasMenu) {
+                    const name = getStringField(precioMenu, 'Nombre');
+                    const priceValue = getNumberField(precioMenu, 'Precio');
+                    addRow(
+                      'menu',
+                      name || 'Menú',
+                      undefined,
+                      priceValue != null ? `${Number(priceValue).toFixed(2)}€ / persona` : undefined
+                    );
+                  }
+                  if (hasCocktail) {
+                    const name = getStringField(precioCocktail, 'Nombre');
+                    const priceValue = getNumberField(precioCocktail, 'Precio');
+                    addRow(
+                      'cocktail',
+                      name || 'Cocktail',
+                      undefined,
+                      priceValue != null ? `${Number(priceValue).toFixed(2)}€ / persona` : undefined
+                    );
+                  }
+	                  if (hasBarra) {
+	                    const name = getStringField(precioBarra, 'Nombre');
+	                    const priceValue = getNumberField(precioBarra, 'Precio');
+	                    const duration = Boolean(precioBarra?.intervaloSeleccionado)
+	                      ? String(((precioBarra?.intervaloSeleccionado as Record<string, unknown>)?.duracionMin ?? '')).trim()
+	                      : '';
+	                    const tiempoLabel = barraTiempoSolicitado ?? (duration ? duration : null);
+	                    addRow(
+	                      'barra',
+	                      name || 'Barra libre',
+	                      undefined,
+	                      priceValue != null ? `${Number(priceValue).toFixed(2)}€ / persona` : undefined,
+	                      tiempoLabel ?? undefined
+	                    );
+	                  }
                   return (
                     <div className="space-y-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        Detalle solicitado
-                      </p>
-                      <div className="space-y-3">
-                        {hasAnticipo && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Anticipo</p>
-                            {getStringField(precioAnticipo, 'Descripción') && (
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {getStringField(precioAnticipo, 'Descripción')}
-                              </p>
-                            )}
-                            {getNumberField(precioAnticipo, 'Precio') != null && (
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {Number(getNumberField(precioAnticipo, 'Precio') ?? 0).toFixed(2)}€
-                              </p>
-                            )}
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                          Detalle solicitado
+                        </p>
+                        {ticketItems.length > 0 ? (
+                          <p className="text-xs text-slate-500">{ticketItems.length} tipos</p>
+                        ) : null}
+                      </div>
+                      <div className="space-y-2">
+                        {detailRows.map((row) => (
+                          <div
+                            key={row.key}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
+                          >
+                            <div>
+	                              <div className="flex items-center gap-2">
+	                                <p className="text-sm font-semibold text-slate-900">{row.title}</p>
+	                                {row.meta ? (
+	                                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+	                                    {row.meta}
+	                                  </span>
+	                                ) : null}
+	                                {row.key === 'menu' && menuPreview.description ? (
+	                                  <button
+	                                    type="button"
+                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                    aria-label="Ver menú"
+                                    onClick={() => setMenuPreviewOpen(true)}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </button>
+                                ) : null}
+                              </div>
+                              {row.subtitle ? (
+                                <p className="text-xs text-slate-500">{row.subtitle}</p>
+                              ) : null}
+                            </div>
+                            {row.price ? (
+                              <p className="text-sm font-semibold text-slate-900">{row.price}</p>
+                            ) : null}
                           </div>
-                        )}
-                        {hasMenu && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Menú</p>
-                            {getStringField(precioMenu, 'Nombre') && (
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {getStringField(precioMenu, 'Nombre')}
-                              </p>
-                            )}
-                            {getNumberField(precioMenu, 'Precio') != null && (
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {Number(getNumberField(precioMenu, 'Precio') ?? 0).toFixed(2)}€
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        {hasCocktail && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Cocktail</p>
-                            {getStringField(precioCocktail, 'Nombre') && (
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {getStringField(precioCocktail, 'Nombre')}
-                              </p>
-                            )}
-                            {getNumberField(precioCocktail, 'Precio') != null && (
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {Number(getNumberField(precioCocktail, 'Precio') ?? 0).toFixed(2)}€
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        {hasBarra && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Barra libre</p>
-                            {getStringField(precioBarra, 'Nombre') && (
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {getStringField(precioBarra, 'Nombre')}
-                              </p>
-                            )}
-                            {getNumberField(precioBarra, 'Precio') != null && (
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {Number(getNumberField(precioBarra, 'Precio') ?? 0).toFixed(2)}€
-                              </p>
-                            )}
-                            {Boolean(precioBarra?.intervaloSeleccionado) && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                Duración:{' '}
-                                {String(((precioBarra?.intervaloSeleccionado as Record<string, unknown>)?.duracionMin ?? ''))}
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        ))}
                       </div>
                       {ticketItems.length > 0 && (
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Tickets</p>
-                            <p className="text-xs text-slate-500">{ticketItems.length} tipos</p>
-                          </div>
-                          <div className="mt-2 space-y-2">
-                            {ticketItems.map((ticket, index) => {
-                              const quantity = Number(ticket.quantity ?? 0);
-                              const price = Number(ticket.price ?? 0);
-                              const total = quantity * price;
-                              return (
-                                <div
-                                  key={`${ticket.ticket ?? 'ticket'}-${index}`}
-                                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
-                                >
-                                  <div>
-                                    <p className="text-sm font-semibold text-slate-900">
-                                      {String(ticket.ticket ?? 'Ticket')}
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                      {String(ticket.quantity ?? 0)} uds · {Number(ticket.price ?? 0).toFixed(2)}€
-                                    </p>
-                                  </div>
-                                  <p className="text-sm font-semibold text-slate-900">{total.toFixed(2)}€</p>
+                          {ticketItems.map((ticket, index) => {
+                            const quantity = Number(ticket.quantity ?? 0);
+                            const price = Number(ticket.price ?? 0);
+                            const total = quantity * price;
+                            return (
+                              <div
+                                key={`${ticket.ticket ?? 'ticket'}-${index}`}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
+                              >
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    {String(ticket.ticket ?? 'Ticket')}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {String(ticket.quantity ?? 0)} uds · {Number(ticket.price ?? 0).toFixed(2)}€
+                                  </p>
                                 </div>
-                              );
-                            })}
-                          </div>
-                          <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
+                                <p className="text-sm font-semibold text-slate-900">{total.toFixed(2)}€</p>
+                              </div>
+                            );
+                          })}
+                          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
                             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Total</p>
                             <p className="text-sm font-semibold text-slate-900">
                               {ticketItems
                                 .reduce(
-                                  (sum, ticket) =>
-                                    sum + Number(ticket.quantity ?? 0) * Number(ticket.price ?? 0),
+                                  (sum, ticket) => sum + Number(ticket.quantity ?? 0) * Number(ticket.price ?? 0),
                                   0
                                 )
                                 .toFixed(2)}
@@ -1866,87 +2539,21 @@ export function ReservaDetalleContent({
               </CardContent>
             </Card>
 
-            {reserva.estado?.toLowerCase() !== 'pendiente' && (
-              <Card className="border-none bg-white shadow-sm">
-                <CardContent className="space-y-3 py-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Pago</p>
-                      <p className="text-base font-semibold text-slate-900">
-                        {(() => {
-                          const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
-                          if (tipoCompra === 'entradas') return 'Plazo de compra';
-                          return isFlexibleNoAnticipo ? 'Fecha límite de asistentes' : 'Fecha límite de pago';
-                        })()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {(() => {
-                        const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
-                        if (tipoCompra !== 'entradas' || paymentWindowConcluded) return null;
-                        return (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            disabled={savingFechaLimite}
-                            onClick={() => setCloseVentaDialogOpen(true)}
-                          >
-                            Cerrar plazo
-                          </Button>
-                        );
-                      })()}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={openFechaLimiteDialog}
-                      >
-                        <CalendarIcon className="h-4 w-4" />
-                        {(() => {
-                          const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
-                          if (tipoCompra !== 'entradas') return 'Editar fecha';
-                          return paymentWindowConcluded ? 'Ampliar fecha' : 'Editar fecha';
-                        })()}
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    {reserva.fechaLimitePago ? formatDate(reserva.fechaLimitePago) : 'Sin fecha'}
-                  </p>
-                  {reserva.estado?.toLowerCase() === 'aceptado' && (
-                    <p className="text-sm text-slate-600">
-                      {(() => {
-                        const tipoCompra = (reserva.tipoCompra ?? '').toLowerCase();
-                        if (tipoCompra === 'entradas') {
-                          return paymentWindowConcluded
-                            ? 'El plazo para comprar la parte del plan ha concluido.'
-                            : 'El plazo para comprar la parte del plan está abierto.';
-                        }
-                        if (isFlexibleNoAnticipo) {
-                          return 'Reserva sin anticipo: no requiere pago.';
-                        }
-                        return reserva.pagado
-                          ? 'El cliente ha pagado la totalidad del plan.'
-                          : 'El cliente pagará la totalidad del plan.';
-                      })()}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-            {canCancelReserva && (
-              <div className="mt-3">
-                <Button
-                  variant="outline"
-                  className="w-full border-rose-200 text-rose-600 hover:bg-rose-50"
-                  onClick={() => setCancelLocalOpen(true)}
-                  disabled={savingCancelLocal}
-                >
-                  Cancelar reserva
-                </Button>
-              </div>
-            )}
+            <Dialog open={menuPreviewOpen} onOpenChange={setMenuPreviewOpen}>
+              <DialogContent className="max-w-lg" onOpenAutoFocus={(event) => event.preventDefault()}>
+                <DialogHeader>
+                  <DialogTitle>{menuPreview.title}</DialogTitle>
+                  {menuPreview.price ? (
+                    <DialogDescription>{menuPreview.price}</DialogDescription>
+                  ) : null}
+                </DialogHeader>
+                <div className="text-sm text-slate-700 whitespace-pre-line">
+                  {menuPreview.description || 'Sin descripción.'}
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {variant === 'panel' ? <div className="lg:hidden">{pagoCardNode}</div> : pagoCardNode}
           </div>
         </div>
       </div>
@@ -1954,8 +2561,16 @@ export function ReservaDetalleContent({
         <DialogContent className="max-w-2xl" onOpenAutoFocus={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Cambiar local</DialogTitle>
-            <DialogDescription>Selecciona el restaurante y el espacio para esta reserva.</DialogDescription>
-          </DialogHeader>
+            <DialogDescription>
+              Actualmente:{' '}
+	              <span className="font-medium text-slate-700">
+	                {String((reserva?.restaurante as Record<string, unknown> | undefined)?.['Nombre del restaurante'] ?? '—')}
+	                {Boolean(reserva?.sala)
+	                  ? ` · ${String((reserva?.sala as Record<string, unknown> | undefined)?.nombre ?? '')}`
+	                  : null}
+	              </span>
+	            </DialogDescription>
+	          </DialogHeader>
           <RestauranteSalaSection
             restaurantes={restaurantes}
             salas={restauranteDetalle?.salas ?? []}
@@ -2070,11 +2685,16 @@ export function ReservaDetalleContent({
                 }
                 setSavingFechaLimite(true);
                 try {
+                  const oldFechaLimite = reserva.fechaLimitePago ?? '';
+                  const cambiosFecha: CambioReserva[] = [];
+                  if (oldFechaLimite !== fechaLimiteDraft)
+                    cambiosFecha.push({ campo: 'fechaLimite', label: 'Fecha límite de pago', anterior: oldFechaLimite || 'Sin fecha', nuevo: fechaLimiteDraft });
                   const result = await ReservaDetalleService.updateFechaLimitePago({
                     reservaId: reserva.id,
                     fechaLimitePago: fechaLimiteDraft,
                     usuarioId: reserva.usuario?.id,
                     usuarioEmail: reserva.usuario?.Email ?? null,
+                    cambios: cambiosFecha,
                   });
                   if (result.missingUser || result.missingEmail) {
                     setFechaLimiteMessage(
@@ -2111,11 +2731,16 @@ export function ReservaDetalleContent({
                 if (!reserva?.id) return;
                 setSavingFechaLimite(true);
                 try {
+                  const oldFechaLimiteCierre = reserva.fechaLimitePago ?? '';
+                  const cambiosCierre: CambioReserva[] = [
+                    { campo: 'fechaLimite', label: 'Fecha límite de pago', anterior: oldFechaLimiteCierre || 'Sin fecha', nuevo: yesterdayIso },
+                  ];
                   const result = await ReservaDetalleService.updateFechaLimitePago({
                     reservaId: reserva.id,
                     fechaLimitePago: yesterdayIso,
                     usuarioId: reserva.usuario?.id,
                     usuarioEmail: reserva.usuario?.Email ?? null,
+                    cambios: cambiosCierre,
                   });
                   if (result.missingUser || result.missingEmail) {
                     setFechaLimiteMessage(
@@ -2220,34 +2845,50 @@ export function ReservaDetalleContent({
             <DialogDescription>Selecciona el espacio para esta reserva.</DialogDescription>
           </DialogHeader>
           <div>
-            <label className="text-sm font-medium text-slate-700">Espacio</label>
-            <select
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              value={selectedSalaNombre}
-              onChange={(event) => setSelectedSalaNombre(event.target.value)}
-              disabled={!restauranteDetalle?.salas?.length}
-            >
-              <option value="">Selecciona un espacio</option>
-              {(() => {
-                const salas = restauranteDetalle?.salas ?? [];
-                const hasSelected = selectedSalaNombre && salas.some((sala) => sala.nombre === selectedSalaNombre);
-                const fallbackSala = !hasSelected && selectedSalaNombre
-                  ? {
-                      nombre: selectedSalaNombre,
-                      aforoMinimo: (reserva?.sala as { aforoMinimo?: number } | null | undefined)?.aforoMinimo ?? 0,
-                      aforoMaximo: (reserva?.sala as { aforoMaximo?: number } | null | undefined)?.aforoMaximo ?? 0,
-                    }
-                  : null;
-                const options = fallbackSala ? [fallbackSala, ...salas] : salas;
-                return options.map((sala) => (
-                  <option key={sala.nombre} value={sala.nombre}>
-                    {sala.nombre} · {sala.aforoMinimo ?? 0} - {sala.aforoMaximo ?? 0} pax
-                  </option>
-                ));
-              })()}
-            </select>
-            {!restauranteDetalle?.salas?.length && (
-              <p className="mt-2 text-xs text-slate-500">Este restaurante no tiene espacios configurados.</p>
+            {!restauranteDetalle?.salas?.length ? (
+              <p className="text-xs text-slate-500">Este restaurante no tiene espacios configurados.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {(() => {
+                  const salas = restauranteDetalle?.salas ?? [];
+                  const hasSelected = selectedSalaNombre && salas.some((sala) => sala.nombre === selectedSalaNombre);
+                  const fallbackSala = !hasSelected && selectedSalaNombre
+                    ? {
+                        nombre: selectedSalaNombre,
+                        aforoMinimo: (reserva?.sala as { aforoMinimo?: number } | null | undefined)?.aforoMinimo ?? 0,
+                        aforoMaximo: (reserva?.sala as { aforoMaximo?: number } | null | undefined)?.aforoMaximo ?? 0,
+                      }
+                    : null;
+                  const options = fallbackSala ? [fallbackSala, ...salas] : salas;
+                  return options.map((sala) => {
+                    const isSelected = selectedSalaNombre === sala.nombre;
+                    return (
+                      <button
+                        key={sala.nombre}
+                        type="button"
+                        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                          isSelected
+                            ? 'border-[#7472fd] bg-[rgba(116,114,253,0.06)]'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                        onClick={() => setSelectedSalaNombre(sala.nombre)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate text-sm font-medium ${isSelected ? 'text-[#7472fd]' : 'text-slate-900'}`}>
+                            {sala.nombre}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {sala.aforoMinimo ?? 0} – {sala.aforoMaximo ?? 0} pax
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <div className="h-4 w-4 shrink-0 rounded-full border-2 border-[#7472fd] bg-[#7472fd]" />
+                        )}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
             )}
           </div>
           <div className="mt-3">
@@ -2302,157 +2943,158 @@ export function ReservaDetalleContent({
 
       <Dialog open={eventoDialogOpen} onOpenChange={setEventoDialogOpen}>
         <DialogContent
-          className="max-w-lg max-h-[90vh] overflow-y-auto"
+          className="max-w-2xl p-0"
           onOpenAutoFocus={(event) => event.preventDefault()}
         >
-          <DialogHeader>
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>Editar reserva</DialogTitle>
             <DialogDescription>Actualiza fecha, hora y aforo de la reserva.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <label className="text-sm font-medium text-slate-700">Fecha</label>
-                <Input
-                  type="date"
-                  value={eventoFecha}
-                  inputMode="none"
-                  onKeyDown={(e) => {
-                    if (e.key !== "Tab") e.preventDefault();
-                  }}
-                  onPaste={(e) => e.preventDefault()}
-                  onChange={(e) => setEventoFecha(e.target.value)}
-                />
+          <div className="max-h-[70vh] space-y-4 overflow-y-auto px-6 pb-6 pt-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Datos de la reserva</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Fecha</label>
+                  <Input
+                    type="date"
+                    value={eventoFecha}
+                    inputMode="none"
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Tab') e.preventDefault();
+                    }}
+                    onPaste={(e) => e.preventDefault()}
+                    onChange={(e) => setEventoFecha(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Hora inicio</label>
+                  <Input type="time" value={eventoHora} onChange={(e) => setEventoHora(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Hora fin</label>
+                  <Input type="time" value={eventoHoraFin} onChange={(e) => setEventoHoraFin(e.target.value)} />
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Hora inicio</label>
-                <Input type="time" value={eventoHora} onChange={(e) => setEventoHora(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Hora fin</label>
-                <Input type="time" value={eventoHoraFin} onChange={(e) => setEventoHoraFin(e.target.value)} />
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Aforo mínimo</label>
+                  <NumberInput
+                    min={0}
+                    value={
+                      typeof eventoAforoMin === 'number'
+                        ? eventoAforoMin
+                        : Number.isNaN(Number(eventoAforoMin))
+                          ? null
+                          : Number(eventoAforoMin)
+                    }
+                    onChangeValue={(value) => setEventoAforoMin(value == null ? '' : String(value))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Aforo máximo</label>
+                  <NumberInput
+                    min={0}
+                    value={
+                      typeof eventoAforoMax === 'number'
+                        ? eventoAforoMax
+                        : Number.isNaN(Number(eventoAforoMax))
+                          ? null
+                          : Number(eventoAforoMax)
+                    }
+                    onChangeValue={(value) => setEventoAforoMax(value == null ? '' : String(value))}
+                  />
+                </div>
               </div>
             </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium text-slate-700">Aforo mínimo</label>
-              <NumberInput
-                min={0}
-                value={
-                  typeof eventoAforoMin === 'number'
-                    ? eventoAforoMin
-                    : Number.isNaN(Number(eventoAforoMin))
-                      ? null
-                      : Number(eventoAforoMin)
-                }
-                onChangeValue={(value) => setEventoAforoMin(value == null ? '' : String(value))}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">Aforo máximo</label>
-              <NumberInput
-                min={0}
-                value={
-                  typeof eventoAforoMax === 'number'
-                    ? eventoAforoMax
-                    : Number.isNaN(Number(eventoAforoMax))
-                      ? null
-                      : Number(eventoAforoMax)
-                }
-                onChangeValue={(value) => setEventoAforoMax(value == null ? '' : String(value))}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-700">Responsable</label>
-            <select
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              value={responsableId}
-              onChange={(event) => setResponsableId(event.target.value)}
-            >
-              <option value="">Equipo sin asignar</option>
-              {responsables.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-700">Canal</label>
-            <select
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              value={canalDraft}
-              onChange={(event) => setCanalDraft(event.target.value)}
-            >
-              <option value="">Sin canal</option>
-              {channels.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="justify-center"
-                onClick={() => {
-                  setEventoDialogOpen(false);
-                  if (reserva) {
-                    const currentSalaNombre = (reserva.sala as { nombre?: string } | null | undefined)?.nombre ?? '';
-                    setSelectedRestauranteId(reserva.restaurante?.id ?? '');
-                    setSelectedSalaNombre(currentSalaNombre);
-                    if (reserva.restaurante?.id) {
-                      const restId = reserva.restaurante.id;
-                      void (async () => {
-                        const detalle = await loadRestauranteDetalle(restId);
-                        if (currentSalaNombre && detalle?.salas?.length) {
-                          const hasSala = detalle.salas.some((sala) => sala.nombre === currentSalaNombre);
-                          if (!hasSala) {
-                            setSelectedSalaNombre(currentSalaNombre);
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Acciones rápidas</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 justify-center gap-2 text-xs"
+                  onClick={() => {
+                    setEventoDialogOpen(false);
+                    if (reserva) {
+                      const currentSalaNombre = (reserva.sala as { nombre?: string } | null | undefined)?.nombre ?? '';
+                      setSelectedRestauranteId(reserva.restaurante?.id ?? '');
+                      setSelectedSalaNombre(currentSalaNombre);
+                      if (reserva.restaurante?.id) {
+                        const restId = reserva.restaurante.id;
+                        void (async () => {
+                          const detalle = await loadRestauranteDetalle(restId);
+                          if (currentSalaNombre && detalle?.salas?.length) {
+                            const hasSala = detalle.salas.some((sala) => sala.nombre === currentSalaNombre);
+                            if (!hasSala) {
+                              setSelectedSalaNombre(currentSalaNombre);
+                            }
                           }
-                        }
-                      })();
+                        })();
+                      }
+                      if (!restaurantes.length && reserva.partnerId) {
+                        void loadRestaurantes(reserva.partnerId);
+                      }
                     }
-                    if (!restaurantes.length && reserva.partnerId) {
-                      void loadRestaurantes(reserva.partnerId);
+                    setLocalDialogOpen(true);
+                  }}
+                >
+                  <Home className="h-4 w-4" />
+                  Cambiar local
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 justify-center gap-2 text-xs"
+                  onClick={() => {
+                    setEventoDialogOpen(false);
+                    if (reserva) {
+                      setSelectedSalaNombre((reserva.sala as { nombre?: string } | null | undefined)?.nombre ?? '');
                     }
-                  }
-                  setLocalDialogOpen(true);
-                }}
-              >
-                Cambiar local
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="justify-center"
-                onClick={() => {
-                  setEventoDialogOpen(false);
-                  if (reserva) {
-                    setSelectedSalaNombre((reserva.sala as { nombre?: string } | null | undefined)?.nombre ?? '');
-                  }
-                  setEspacioDialogOpen(true);
-                }}
-              >
-                Cambiar espacio
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="justify-center"
-                onClick={() => {
-                  setEventoDialogOpen(false);
-                  setFechaLimiteDialogOpen(true);
-                }}
-              >
-                Editar fecha límite
-              </Button>
+                    setEspacioDialogOpen(true);
+                  }}
+                >
+                  <DoorOpen className="h-4 w-4" />
+                  Cambiar espacio
+                </Button>
+                {reserva &&
+                  (reserva.estado ?? '').toLowerCase() !== 'pendiente' &&
+                  !['completado', 'fallado'].includes((reserva.estado ?? '').toLowerCase()) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 justify-center gap-2 text-xs"
+                      onClick={() => {
+                        setEventoDialogOpen(false);
+                        setFechaLimiteDialogOpen(true);
+                      }}
+                    >
+                      <CalendarIcon className="h-4 w-4" />
+                      Editar fecha límite
+                    </Button>
+                  )}
+              </div>
             </div>
+
+            {canCancelReserva ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                <p className="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">
+                  Cancelación
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-2 h-9 w-full border-rose-200 bg-white text-rose-700 hover:bg-rose-100"
+                  onClick={() => setCancelLocalOpen(true)}
+                  disabled={savingCancelLocal}
+                >
+                  Cancelar reserva
+                </Button>
+              </div>
+            ) : null}
           </div>
-          <DialogFooter>
+
+          <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
             <Button variant="outline" onClick={() => setEventoDialogOpen(false)}>
               Cancelar
             </Button>
@@ -2463,7 +3105,7 @@ export function ReservaDetalleContent({
             >
               {savingEvento ? 'Guardando...' : 'Guardar cambios'}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2484,7 +3126,7 @@ export function ReservaDetalleContent({
 
       {packDialogOpen && typeof document !== 'undefined'
         ? createPortal(
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-komvo-modal="true">
                 <div
                   className="relative flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
                   onClick={(event) => event.stopPropagation()}
@@ -2901,6 +3543,17 @@ export function ReservaDetalleContent({
         </DialogContent>
       </Dialog>
 
+      {panelRightRailTarget
+        ? createPortal(
+            <div className="origin-top-left w-[125%] scale-[0.8] space-y-4">
+              {facturasCardNode}
+              {pagoCardNode}
+              {asistentesRailNode}
+            </div>,
+            panelRightRailTarget
+          )
+        : null}
+
       
       <ChatCard
         unreadCount={mensajesUnread}
@@ -2920,6 +3573,7 @@ export function ReservaDetalleContent({
               : null;
           })()
         }
+        floatingRightOffset={chatRightOffset}
         onSent={() => loadAll({ silent: true })}
       />
       </div>
