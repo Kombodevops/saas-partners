@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { AuthService } from '@/lib/services/auth.service';
+import { KomvoComisionService } from '@/lib/services/komvo-comision.service';
 import { RestaurantesService } from '@/lib/services/restaurantes.service';
 import { RestauranteDetalleService } from '@/lib/services/restaurante-detalle.service';
 import { RestauranteFiscalSchema, type RestauranteFiscalForm } from '@/lib/validators/restaurante-fiscal';
@@ -103,6 +104,8 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
   const [dniBack, setDniBack] = useState<File | null>(null);
   const [dniError, setDniError] = useState('');
   const [confirmSource, setConfirmSource] = useState<string | null>(null);
+  const [partnerMarketplaceCk, setPartnerMarketplaceCk] = useState<number | null>(null);
+  const [signatureIsEmpty, setSignatureIsEmpty] = useState(true);
 
   const form = useForm<RestauranteFiscalForm>({
     resolver: zodResolver(RestauranteFiscalSchema),
@@ -143,6 +146,10 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
 
         const partner = await AuthService.getCurrentPartner();
         if (!partner || !active) return;
+
+        const komvoCk = await KomvoComisionService.getMarketplaceComisionPercentByPartnerId(partner.id);
+        if (active) setPartnerMarketplaceCk(komvoCk);
+
         const fiscalDataRaw = await RestaurantesService.getRestaurantesFiscalesByOwnerId(partner.id);
         const fiscalData = (fiscalDataRaw ?? []).map((item) => ({
           ...item,
@@ -361,7 +368,7 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
       stripeAccountId: source.stripeAccountId,
     };
     setIsSaving(true);
-    await RestauranteDetalleService.updateDatosFiscales(id, payload);
+    await RestauranteDetalleService.updateDatosFiscales(id, payload, { ck: partnerMarketplaceCk ?? undefined });
     form.reset(payload);
     setIsSaving(false);
     try {
@@ -487,7 +494,7 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
     const pdf = await renderContractPdf(values);
     if (!pdf) return '';
     const blob = pdf.output('blob');
-    const path = `restaurants/${id}/contratos/contrato_${Date.now()}.pdf`;
+    const path = `restaurants/${id}/contratos/contrato.pdf`;
     const fileRef = ref(storage, path);
     await uploadBytes(fileRef, blob, { contentType: 'application/pdf' });
     return getDownloadURL(fileRef);
@@ -508,7 +515,7 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
     const stripeAccountId = await createStripeAccount({ ...values, dnifUrl, dnibUrl });
     setProcessingStep(3);
     const payload = { ...values, contrato: contractUrl, stripeAccountId };
-    await RestauranteDetalleService.updateDatosFiscales(id, payload);
+    await RestauranteDetalleService.updateDatosFiscales(id, payload, { ck: partnerMarketplaceCk ?? undefined });
     setProcessingStep(4);
     setIsSaving(false);
     setIsProcessing(false);
@@ -529,7 +536,12 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
     setAcceptedContract(false);
     signatureRef.current?.clear();
     setSignatureDataUrl('');
+    setSignatureIsEmpty(true);
     setShowContract(true);
+  };
+
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    void form.handleSubmit(onSubmit)(event);
   };
 
   const getContractBlocks = (values: RestauranteFiscalForm) => {
@@ -538,6 +550,8 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
     const domicilio = values.direccionFiscal
       ? `${values.direccionFiscal}, ${values.codigoPostalNegocio} ${values.ciudadNegocio}, ${values.provinciaNegocio}`
       : '[●]';
+    const ck = partnerMarketplaceCk ?? 10;
+    const ckText = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(ck);
 
     const lines: { text: string; bold?: boolean }[] = [
       { text: 'CONTRATO DE COLABORACIÓN', bold: true },
@@ -554,7 +568,7 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
       { text: 'En todo caso, Komvo actúa exclusivamente como proveedor de infraestructura tecnológica y, cuando proceda, como intermediario digital. El servicio contratado por los usuarios será prestado única y exclusivamente por el Establecimiento bajo su entera responsabilidad.' },
       { text: '2. Régimen económico', bold: true },
       { text: '2.1 Modelo Marketplace', bold: true },
-      { text: 'En el marco del modelo Marketplace, Komvo percibirá por su labor de intermediación una comisión equivalente al diez por ciento (10%) del importe total efectivamente cobrado en cada transacción gestionada a través de la Plataforma.' },
+      { text: `En el marco del modelo Marketplace, Komvo percibirá por su labor de intermediación una comisión equivalente al ${ckText} por ciento (${ckText}%) del importe total efectivamente cobrado en cada transacción gestionada a través de la Plataforma.` },
       { text: 'El precio mostrado al usuario tendrá carácter final y no incluirá recargo alguno aplicado por Komvo en este modelo.' },
       { text: 'El Establecimiento se obliga a mantener en la Plataforma condiciones económicas no superiores a las ofrecidas en su propio local, en su página web oficial o en cualesquiera otros canales propios o de terceros. Esta obligación responde a la coherencia comercial inherente a la utilización de la Plataforma como canal de ventas adicional. El incumplimiento reiterado de dicha obligación facultará a Komvo para suspender o resolver el presente Contrato.' },
       { text: '2.2 Utilización del dashboard para grupos propios (modelo SaaS)', bold: true },
@@ -723,10 +737,14 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
                     penColor="#1f2937"
                     canvasProps={{ width: 520, height: 200, className: 'rounded-lg bg-white' }}
                     onEnd={() => {
-                      if (signatureRef.current && !signatureRef.current.isEmpty()) {
+                      const empty = signatureRef.current?.isEmpty() ?? true;
+                      setSignatureIsEmpty(empty);
+                      if (!empty && signatureRef.current) {
                         const canvas = signatureRef.current.getCanvas();
                         setSignatureAspect(canvas.width / canvas.height || 1);
                         setSignatureDataUrl(signatureRef.current.toDataURL('image/png'));
+                      } else {
+                        setSignatureDataUrl('');
                       }
                     }}
                   />
@@ -738,6 +756,7 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
                     onClick={() => {
                       signatureRef.current?.clear();
                       setSignatureDataUrl('');
+                      setSignatureIsEmpty(true);
                     }}
                   >
                     Borrar firma
@@ -773,12 +792,7 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
                 <Button
                   type="button"
                   className="bg-[#7472fd] text-white hover:bg-[#5f5bf2]"
-                  disabled={
-                    !pendingValues ||
-                    !acceptedContract ||
-                    !signatureRef.current ||
-                    signatureRef.current.isEmpty()
-                  }
+                  disabled={!pendingValues || !acceptedContract || signatureIsEmpty}
                   onClick={async () => {
                     if (!pendingValues) return;
                     setShowContract(false);
@@ -959,7 +973,7 @@ export default function RestauranteDatosFiscalesPage({ params }: PageProps) {
               <p className="text-sm text-slate-500">Cargando datos...</p>
             ) : (
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
+                <form onSubmit={handleFormSubmit} className="grid gap-6">
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-slate-900">Tipo de cuenta</p>
                     <p className="text-xs text-slate-500">Define si el local es autónomo o empresa.</p>

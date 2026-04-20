@@ -136,6 +136,7 @@ export const RestauranteDetalleDocSchema = z
       .optional()
       .catch(undefined),
     stripeAccountId: z.string().optional().catch(''),
+    ck: z.union([z.string(), z.number()]).optional().catch(undefined),
     slug: z.string().optional().catch(''),
     color: z.string().optional().catch(''),
   })

@@ -166,14 +166,6 @@ export function ReservaDetalleContent({
   const [chatNombre, setChatNombre] = useState('');
   const [chatId, setChatId] = useState<string | null>(null);
   const [asistencias, setAsistencias] = useState<AsistenciaDetalle[]>([]);
-  const [asistentesStats, setAsistentesStats] = useState({
-    totalAsistentes: 0,
-    confirmados: 0,
-    confirmadosNoPagados: 0,
-    pagados: 0,
-    talvez: 0,
-    noAsisten: 0,
-  });
 	  const [facturas, setFacturas] = useState<FacturaDetalle[]>([]);
 	  const [facturasAll, setFacturasAll] = useState<FacturaDetalle[]>([]);
 	  const [showPackEditReason, setShowPackEditReason] = useState(false);
@@ -838,6 +830,26 @@ export function ReservaDetalleContent({
 
   const aforoSolicitadoLabel = useMemo(() => getAforoSolicitadoLabel(reserva), [reserva]);
 
+  const numeroFinalAsistentes = useMemo(() => {
+    const raw = reserva?.numeroFinalAsistentes;
+    const normalized = typeof raw === 'string' ? raw.trim().replace(',', '.') : raw;
+    const parsed = typeof normalized === 'number' ? normalized : Number(normalized);
+    if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
+    return asistencias.length;
+  }, [reserva?.numeroFinalAsistentes, asistencias.length]);
+
+  const asistentesStats = useMemo(
+    () => ({
+      totalAsistentes: numeroFinalAsistentes,
+      confirmados: 0,
+      confirmadosNoPagados: 0,
+      pagados: 0,
+      talvez: 0,
+      noAsisten: 0,
+    }),
+    [numeroFinalAsistentes]
+  );
+
   const loadAll = async (options?: { silent?: boolean }) => {
     if (!reservaId) return;
     if (!options?.silent) {
@@ -869,9 +881,6 @@ export function ReservaDetalleContent({
 
       const todasAsistencias = await ReservaDetalleService.getAsistencias(reservaId);
       setAsistencias(todasAsistencias);
-
-      const stats = await ReservaDetalleService.getConteoAsistentes(reservaId, reservaData.tipoCompra);
-      setAsistentesStats(stats);
 
       const facturasResult = await ReservaDetalleService.getFacturas(reservaId);
       setFacturas(facturasResult.visibles);
@@ -1072,8 +1081,8 @@ export function ReservaDetalleContent({
         horaFin: eventoHoraFin,
         'Tamaño del grupo': {
           ...(sizeCurrent as Record<string, unknown> | undefined),
-          min: eventoAforoMin ? Number(eventoAforoMin) : '',
-          max: eventoAforoMax ? Number(eventoAforoMax) : '',
+          min: normalizeNumberText(eventoAforoMin),
+          max: normalizeNumberText(eventoAforoMax),
         },
       };
       if (hasEventoChanges) {
@@ -1517,7 +1526,7 @@ export function ReservaDetalleContent({
         (reserva.questions as Array<{ question?: string; question_type?: string; required?: boolean; options?: string[] }> | undefined) ??
         []
       }
-      showPaymentStats={reserva.tipoCompra?.toLowerCase() === 'entradas'}
+      showPaymentStats={false}
       isKomvo={isKomvo}
       reservaId={reserva.id}
       onReload={() => loadAll({ silent: true })}
@@ -2190,7 +2199,7 @@ export function ReservaDetalleContent({
                     (reserva.questions as Array<{ question?: string; question_type?: string; required?: boolean; options?: string[] }> | undefined) ??
                     []
                   }
-                  showPaymentStats={reserva.tipoCompra?.toLowerCase() === 'entradas'}
+                  showPaymentStats={false}
                   isKomvo={isKomvo}
                   reservaId={reserva.id}
                   onReload={() => loadAll({ silent: true })}
@@ -2208,7 +2217,7 @@ export function ReservaDetalleContent({
                   (reserva.questions as Array<{ question?: string; question_type?: string; required?: boolean; options?: string[] }> | undefined) ??
                   []
                 }
-                showPaymentStats={reserva.tipoCompra?.toLowerCase() === 'entradas'}
+                showPaymentStats={false}
                 isKomvo={isKomvo}
                 reservaId={reserva.id}
                 onReload={() => loadAll({ silent: true })}

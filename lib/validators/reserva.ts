@@ -88,6 +88,7 @@ export const ReservaDocSchema = z
     pagado: z.boolean().optional().catch(false),
     estado: z.string().optional().catch(''),
     tipoCompra: z.string().optional().catch(''),
+    numeroFinalAsistentes: z.union([z.string(), z.number()]).optional().catch(undefined),
     asistentes: z.boolean().optional().catch(false),
     chat: z.boolean().optional().catch(false),
     showChat: z.boolean().optional().catch(false),

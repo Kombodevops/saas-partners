@@ -177,10 +177,14 @@ export class RestauranteDetalleService {
     });
   }
 
-  static async updateDatosFiscales(id: string, payload: RestauranteFiscalForm): Promise<void> {
+  static async updateDatosFiscales(
+    id: string,
+    payload: RestauranteFiscalForm,
+    options?: { ck?: number }
+  ): Promise<void> {
     if (!id) return;
     const ref = doc(db, 'restaurants', id);
-    await updateDoc(ref, {
+    const updatePayload: Record<string, unknown> = {
       datos_personales: {
         Email: payload.email ?? '',
         Prefijo: payload.prefijo ?? '',
@@ -209,7 +213,14 @@ export class RestauranteDetalleService {
         'Nombre del banco': payload.nombreBanco ?? '',
       },
       stripeAccountId: payload.stripeAccountId ?? '',
-    });
+    };
+
+    const ck = options?.ck;
+    if (typeof ck === 'number' && Number.isFinite(ck)) {
+      updatePayload.ck = ck;
+    }
+
+    await updateDoc(ref, updatePayload);
   }
 
   static async uploadDni(
