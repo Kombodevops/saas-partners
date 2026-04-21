@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthService } from '@/lib/services/auth.service';
 
-const PUBLIC_ROUTES = ['/login', '/register'];
+const PUBLIC_ROUTES = ['/login', '/register', '/sso'];
 
 interface AuthGateProps {
   children: ReactNode;
@@ -13,36 +13,24 @@ interface AuthGateProps {
 export function AuthGate({ children }: AuthGateProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+
   const [hasUser, setHasUser] = useState(() => !!AuthService.getCurrentUser());
-  const [checking, setChecking] = useState(() => {
-    if (PUBLIC_ROUTES.includes(pathname)) return false;
-    return !AuthService.getCurrentUser();
-  });
 
   useEffect(() => {
-    if (PUBLIC_ROUTES.includes(pathname)) {
-      setChecking(false);
-      return;
-    }
-
-    const currentUser = AuthService.getCurrentUser();
-    if (currentUser) {
-      setHasUser(true);
-      setChecking(false);
-    }
+    if (isPublicRoute) return;
 
     const unsubscribe = AuthService.onAuthStateChanged((user) => {
       if (!user) {
         router.replace('/login');
       }
       setHasUser(!!user);
-      setChecking(false);
     });
 
     return () => unsubscribe();
-  }, [pathname, router]);
+  }, [isPublicRoute, router]);
 
-  if (checking && !PUBLIC_ROUTES.includes(pathname) && !hasUser) {
+  if (!isPublicRoute && !hasUser) {
     return null;
   }
 

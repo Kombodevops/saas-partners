@@ -13,7 +13,7 @@ interface RestaurantesContextValue {
 }
 
 const CACHE_KEY = 'komvo_restaurantes_cache';
-const PUBLIC_ROUTES = ['/login', '/register'];
+const PUBLIC_ROUTES = ['/login', '/register', '/sso'];
 
 const RestaurantesContext = createContext<RestaurantesContextValue | null>(null);
 
@@ -32,13 +32,13 @@ export function RestaurantesProvider({ children }: { children: React.ReactNode }
   });
   const [isLoading, setIsLoading] = useState(() => {
     if (typeof window === 'undefined') return true;
+    if (PUBLIC_ROUTES.includes(pathname)) return false;
     return !sessionStorage.getItem(CACHE_KEY);
   });
 
   const loadRestaurantes = useCallback(
     async (options?: { force?: boolean }) => {
       if (PUBLIC_ROUTES.includes(pathname)) {
-        setIsLoading(false);
         return;
       }
 
@@ -89,7 +89,6 @@ export function RestaurantesProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (PUBLIC_ROUTES.includes(pathname)) {
-      setIsLoading(false);
       return;
     }
 
@@ -104,10 +103,8 @@ export function RestaurantesProvider({ children }: { children: React.ReactNode }
         }
         return;
       }
-      loadRestaurantes();
     });
 
-    loadRestaurantes();
 
     return () => {
       active = false;
