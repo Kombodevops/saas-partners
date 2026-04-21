@@ -103,8 +103,9 @@ export function RestaurantesProvider({ children }: { children: React.ReactNode }
         }
         return;
       }
-    });
 
+      void loadRestaurantes({ force: true });
+    });
 
     return () => {
       active = false;
