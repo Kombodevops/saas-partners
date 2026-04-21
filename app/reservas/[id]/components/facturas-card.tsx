@@ -98,6 +98,7 @@ type ServicioPagado = {
   items?: ServicioPagadoItem[];
   total_cents?: number;
   tipoCompra?: string;
+  last_payment?: string | Date | TimestampLike | null;
 };
 
 const formatDateValue = (value?: string | Date | TimestampLike | null) => {
@@ -118,6 +119,27 @@ const formatDateValue = (value?: string | Date | TimestampLike | null) => {
     }
   }
   return 'Sin fecha';
+};
+
+const toDateFromUnknown = (value: unknown): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (typeof value === 'object') {
+    const obj = value as TimestampLike;
+    if (typeof obj.toDate === 'function') {
+      const parsed = obj.toDate();
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    if (typeof obj.seconds === 'number') {
+      const parsed = new Date(obj.seconds * 1000);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+  }
+  return null;
 };
 
 const getAmountCents = (factura: FacturaDetalle) => {
@@ -407,21 +429,14 @@ export function FacturasCard({
     if (!reservaPagado || reservaEstado !== 'completado') {
       return { ok: false, reason: 'La reserva debe estar completada y pagada.' };
     }
-    if (!reservaFechaEvento) {
-      return { ok: false, reason: 'Fecha de evento inválida o ausente.' };
-    }
-    const dateValue =
-      reservaFechaEvento instanceof Date
-        ? reservaFechaEvento
-        : typeof reservaFechaEvento === 'string'
-          ? new Date(reservaFechaEvento)
-          : typeof reservaFechaEvento === 'object' && typeof reservaFechaEvento.toDate === 'function'
-            ? reservaFechaEvento.toDate()
-            : typeof reservaFechaEvento === 'object' && typeof reservaFechaEvento.seconds === 'number'
-              ? new Date(reservaFechaEvento.seconds * 1000)
-              : new Date('');
-    if (Number.isNaN(dateValue.getTime())) {
-      return { ok: false, reason: 'Fecha de evento inválida o ausente.' };
+    const minEligibleEventDate = new Date(2026, 2, 1); // 1 Mar 2026
+    const lastPaymentDate = toDateFromUnknown((servicioPagado as Record<string, unknown> | null | undefined)?.last_payment);
+    const eventDate = reservaFechaEvento ? toDateFromUnknown(reservaFechaEvento) : null;
+    const dateValue = lastPaymentDate ?? eventDate;
+
+    if (!dateValue) return { ok: false, reason: 'Fecha de evento inválida o ausente.' };
+    if (dateValue < minEligibleEventDate) {
+      return { ok: false, reason: 'Reserva no habilitada para retirar pagos.' };
     }
     const now = new Date();
     const daysMs = 7 * 24 * 60 * 60 * 1000;
@@ -435,6 +450,12 @@ export function FacturasCard({
 
   const fetchPayoutAvailability = async () => {
     if (!partnerId || !reservaId) return;
+    const precheck = precheckPayoutEligibility();
+    if (!precheck.ok) {
+      setPayoutInfo({ canWithdraw: false, policyCompliant: false });
+      setPayoutError(precheck.reason || 'No se puede retirar todavía.');
+      return;
+    }
     const endpoint = process.env.NEXT_PUBLIC_CHECK_PAYOUT;
     if (!endpoint) return;
     const idToken = await AuthService.getIdToken();
@@ -471,6 +492,12 @@ export function FacturasCard({
 
   const handleCreatePayout = async () => {
     if (!partnerId || !reservaId) return;
+    const precheck = precheckPayoutEligibility();
+    if (!precheck.ok) {
+      setPayoutInfo({ canWithdraw: false, policyCompliant: false });
+      setPayoutError(precheck.reason || 'No se puede retirar todavía.');
+      return;
+    }
     const endpoint = process.env.NEXT_PUBLIC_CREATE_PAYOUT;
     if (!endpoint) return;
     const idToken = await AuthService.getIdToken();
