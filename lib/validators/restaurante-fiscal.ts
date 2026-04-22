@@ -9,7 +9,7 @@ const isSpanishIban = (value: string) => /^ES[0-9]{22}$/.test(normalizeUpper(val
 
 const isNif = (value: string) => {
   const val = normalizeUpper(value);
-  return /^[0-9]{8}[A-Z]$/.test(val);
+  return /^[0-9]{8}[A-Z]$/.test(val) || /^[A-Z][0-9]{7}[A-Z]$/.test(val);
 };
 
 const isCif = (value: string) => {
@@ -87,7 +87,7 @@ export const RestauranteFiscalSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['nif'],
-        message: 'Para autónomo, el NIF debe tener 8 números y una letra',
+        message: 'Para autónomo, el NIF debe tener 8 números y una letra, o NIE extranjero (letra + 7 números + letra)',
       });
     }
 
