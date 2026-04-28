@@ -1,0 +1,93 @@
+[debug] [2026-04-28T13:47:07.834Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T13:47:07.842Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T13:47:07.847Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:07.847Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:07.851Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:07.852Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:07.852Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:07.852Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:07.852Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T13:47:07.852Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T13:47:07.853Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com [none]
+[debug] [2026-04-28T13:47:07.853Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T13:47:07.854Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com [none]
+[debug] [2026-04-28T13:47:07.854Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T13:47:07.855Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com [none]
+[debug] [2026-04-28T13:47:07.855Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T13:47:08.729Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com 403
+[debug] [2026-04-28T13:47:08.730Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com [omitted]
+[debug] [2026-04-28T13:47:08.844Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com 200
+[debug] [2026-04-28T13:47:08.845Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com [omitted]
+[debug] [2026-04-28T13:47:08.845Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com 200
+[debug] [2026-04-28T13:47:08.845Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com [omitted]
+[debug] [2026-04-28T13:47:08.886Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T13:47:08.887Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T13:47:08.888Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T13:47:08.888Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T13:47:22.023Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T13:47:22.030Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T13:47:22.033Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:22.033Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:22.036Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:22.037Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:22.037Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:22.037Z] Checked if tokens are valid: true, expires at: 1777386884623
+[debug] [2026-04-28T13:47:22.037Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T13:47:22.037Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T13:47:22.038Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com [none]
+[debug] [2026-04-28T13:47:22.038Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T13:47:22.039Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com [none]
+[debug] [2026-04-28T13:47:22.039Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T13:47:22.040Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com [none]
+[debug] [2026-04-28T13:47:22.040Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T13:47:22.861Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com 403
+[debug] [2026-04-28T13:47:22.861Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com [omitted]
+[debug] [2026-04-28T13:47:22.888Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com 200
+[debug] [2026-04-28T13:47:22.888Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com [omitted]
+[debug] [2026-04-28T13:47:22.939Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com 200
+[debug] [2026-04-28T13:47:22.939Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com [omitted]
+[debug] [2026-04-28T13:47:22.979Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T13:47:22.979Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T13:47:22.980Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T13:47:22.980Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T14:25:58.166Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T14:25:58.174Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T14:25:58.177Z] Checked if tokens are valid: false, expires at: 1777386884623
+[debug] [2026-04-28T14:25:58.177Z] Checked if tokens are valid: false, expires at: 1777386884623
+[debug] [2026-04-28T14:25:58.177Z] > refreshing access token with scopes: []
+[debug] [2026-04-28T14:25:58.178Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-04-28T14:25:58.178Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-04-28T14:25:58.183Z] Checked if tokens are valid: false, expires at: 1777386884623
+[debug] [2026-04-28T14:25:58.183Z] Checked if tokens are valid: false, expires at: 1777386884623
+[debug] [2026-04-28T14:25:58.183Z] > refreshing access token with scopes: []
+[debug] [2026-04-28T14:25:58.184Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-04-28T14:25:58.184Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-04-28T14:25:58.184Z] Checked if tokens are valid: false, expires at: 1777386884623
+[debug] [2026-04-28T14:25:58.184Z] Checked if tokens are valid: false, expires at: 1777386884623
+[debug] [2026-04-28T14:25:58.184Z] > refreshing access token with scopes: []
+[debug] [2026-04-28T14:25:58.184Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-04-28T14:25:58.184Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-04-28T14:25:58.185Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T14:25:58.185Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T14:25:58.313Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-04-28T14:25:58.313Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-04-28T14:25:58.328Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com [none]
+[debug] [2026-04-28T14:25:58.328Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T14:25:58.520Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-04-28T14:25:58.521Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-04-28T14:25:58.532Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com [none]
+[debug] [2026-04-28T14:25:58.532Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T14:25:58.769Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-04-28T14:25:58.770Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-04-28T14:25:58.784Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com [none]
+[debug] [2026-04-28T14:25:58.784Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com x-goog-quota-user=projects/kombodevops-f894b
+[debug] [2026-04-28T14:25:59.261Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com 403
+[debug] [2026-04-28T14:25:59.262Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseio.com [omitted]
+[debug] [2026-04-28T14:25:59.401Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com 200
+[debug] [2026-04-28T14:25:59.402Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebaseapphosting.googleapis.com [omitted]
+[debug] [2026-04-28T14:25:59.691Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com 200
+[debug] [2026-04-28T14:25:59.691Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/kombodevops-f894b/services/firebasedataconnect.googleapis.com [omitted]
+[debug] [2026-04-28T14:25:59.732Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T14:25:59.732Z] > authorizing via signed-in user (kombodevops@gmail.com)
+[debug] [2026-04-28T14:25:59.734Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-28T14:25:59.734Z] > authorizing via signed-in user (kombodevops@gmail.com)
